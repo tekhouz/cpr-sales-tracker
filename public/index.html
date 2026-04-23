@@ -1,0 +1,2600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPR Sales Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --primary: #0055a5;
+  --primary-dark: #003d7a;
+  --green: #00a651;
+  --red: #dc3545;
+  --orange: #fd7e14;
+  --yellow: #ffc107;
+  --purple: #6f42c1;
+  --teal: #20c997;
+  --gray: #6c757d;
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --border: #dee2e6;
+  --text: #212529;
+  --text-muted: #6c757d;
+  --header-h: 60px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+/* ── LOGIN ── */
+#login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0055a5 0%, #003d7a 60%, #001f40 100%);
+}
+.login-card {
+  background: #fff; border-radius: 12px; padding: 40px 36px; width: 360px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.login-logo { text-align: center; margin-bottom: 28px; }
+.login-logo .brand { font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: 2px; }
+.login-logo .tagline { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.login-card h2 { font-size: 18px; margin-bottom: 20px; color: var(--text); font-weight: 600; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 14px; color: var(--text); transition: border-color 0.2s;
+  background: #fff;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,85,165,0.1);
+}
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; text-decoration: none; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-success { background: var(--green); color: #fff; }
+.btn-success:hover { background: #008a43; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #b02a37; }
+.btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+.btn-outline:hover { background: var(--primary); color: #fff; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-full { width: 100%; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+#login-error { color: var(--red); font-size: 13px; margin-top: 8px; display: none; }
+
+/* ── APP LAYOUT ── */
+#app { min-height: 100vh; }
+header {
+  background: #1a2332; color: #fff; height: var(--header-h);
+  display: flex; align-items: center; padding: 0 20px; gap: 20px;
+  position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.header-brand { font-size: 16px; font-weight: 800; letter-spacing: 1px; color: #fff; white-space: nowrap; }
+.header-brand span { color: var(--green); }
+nav { display: flex; gap: 4px; flex: 1; }
+.nav-btn {
+  padding: 6px 14px; background: transparent; border: none; color: rgba(255,255,255,0.7);
+  border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: all 0.15s; white-space: nowrap;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.nav-btn.active { background: var(--primary); color: #fff; }
+.header-user { display: flex; align-items: center; gap: 10px; margin-left: auto; white-space: nowrap; }
+.header-user span { font-size: 13px; color: rgba(255,255,255,0.8); }
+main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── CARDS ── */
+.card { background: var(--card); border-radius: 8px; border: 1px solid var(--border); }
+.card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.card-header h3 { font-size: 15px; font-weight: 600; }
+.card-body { padding: 18px; }
+
+/* ── KPI CARDS ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.kpi-card {
+  background: var(--card); border-radius: 8px; padding: 18px;
+  border-left: 4px solid var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.kpi-card.green  { border-left-color: var(--green); }
+.kpi-card.orange { border-left-color: var(--orange); }
+.kpi-card.cash   { border-left-color: var(--yellow); }
+.kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.kpi-value { font-size: 26px; font-weight: 700; margin: 6px 0 4px; }
+.kpi-sub { font-size: 12px; color: var(--text-muted); }
+
+/* ── GRID LAYOUTS ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+/* ── TABLES ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f8f9fa; padding: 10px 12px; text-align: left; font-size: 11px;
+     font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);
+     border-bottom: 2px solid var(--border); white-space: nowrap; }
+td { padding: 9px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+tr:hover td { background: #f8f9fa; }
+.tfoot td { font-weight: 700; background: #f8f9fa; border-top: 2px solid var(--border); }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+}
+.badge-repair      { background: #cce5ff; color: #004085; }
+.badge-accessories { background: #ffeeba; color: #856404; }
+.badge-device-sale { background: #d4edda; color: #155724; }
+.badge-cases       { background: #e2d9f3; color: #3d1a78; }
+.badge-privacy-glass { background: #d1ecf1; color: #0c5460; }
+.badge-pre-order   { background: #fff3cd; color: #856404; }
+.badge-other       { background: #e2e3e5; color: #383d41; }
+
+.badge-cash  { background: #d4edda; color: #155724; }
+.badge-square { background: #cce5ff; color: #004085; }
+.badge-repairq { background: #e2d9f3; color: #3d1a78; }
+
+/* ── FILTERS ── */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 16px; }
+.filter-bar .form-group { margin-bottom: 0; min-width: 140px; }
+.filter-bar label { font-size: 11px; }
+.date-quick-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.date-quick-btns .btn { font-size: 12px; padding: 6px 12px; }
+
+/* ── SALE FORM ── */
+.sale-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.sale-form-grid .span-2 { grid-column: span 2; }
+.sale-form-grid .span-3 { grid-column: span 3; }
+@media (max-width: 700px) { .sale-form-grid .span-2, .sale-form-grid .span-3 { grid-column: span 1; } }
+.calc-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; margin-top: 14px; }
+@media (max-width: 700px) { .calc-row { grid-template-columns: 1fr 1fr; } }
+.calc-field { background: #f8f9fa; border-radius: 6px; padding: 12px 14px; }
+.calc-field label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+.calc-field .val { font-size: 20px; font-weight: 700; color: var(--primary); margin-top: 4px; }
+.calc-field.net .val { color: var(--green); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 1000; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-box {
+  background: #fff; border-radius: 10px; width: 100%; max-width: 900px;
+  max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.modal-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: #fff; z-index: 1;
+}
+.modal-header h3 { font-size: 16px; font-weight: 600; }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+.close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); line-height: 1; }
+.close-btn:hover { color: var(--text); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500;
+  color: #fff; transform: translateY(80px); opacity: 0;
+  transition: all 0.3s; pointer-events: none; max-width: 320px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { background: #198754; }
+#toast.error   { background: var(--red); }
+#toast.info    { background: var(--primary); }
+
+/* ── MISC ── */
+.page-title { font-size: 20px; font-weight: 700; margin-bottom: 18px; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-muted { color: var(--text-muted); }
+.text-green { color: var(--green); font-weight: 600; }
+.text-red { color: var(--red); }
+.mt-4 { margin-top: 16px; }
+.mb-4 { margin-bottom: 16px; }
+.flex-end { display: flex; justify-content: flex-end; gap: 8px; }
+.hidden { display: none !important; }
+.section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 10px; }
+.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+.chart-container { position: relative; }
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+.actions { display: flex; gap: 6px; }
+
+/* Customer avatar */
+.avatar {
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius:50%; color:#fff; font-weight:700; flex-shrink:0;
+  font-size:14px; width:36px; height:36px;
+}
+.avatar-lg { width:52px; height:52px; font-size:20px; }
+
+/* Customer card in list */
+.cust-name-cell { display:flex; align-items:center; gap:10px; }
+.cust-meta { font-size:11px; color:var(--text-muted); margin-top:1px; }
+
+/* Profile modal layout */
+.profile-stats-bar {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:10px; margin-bottom:20px;
+}
+.profile-stat { background:#f8f9fa; border-radius:8px; padding:12px 14px; text-align:center; }
+.profile-stat .ps-label { font-size:11px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.5px; color:var(--text-muted); }
+.profile-stat .ps-val { font-size:20px; font-weight:700; margin-top:4px; color:var(--primary); }
+.profile-stat .ps-val.green { color:var(--green); }
+
+.profile-two-col { display:grid; grid-template-columns:260px 1fr; gap:20px; }
+@media(max-width:700px){ .profile-two-col { grid-template-columns:1fr; } }
+
+.info-row { display:flex; gap:8px; align-items:flex-start; padding:7px 0;
+  border-bottom:1px solid #f0f2f5; font-size:13px; }
+.info-row:last-child { border-bottom:none; }
+.info-icon { width:20px; text-align:center; flex-shrink:0; }
+.info-label { font-size:11px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:1px; }
+.info-val { color:var(--text); }
+
+/* Customers KPI grid */
+.cust-kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:18px; }
+.cust-kpi-card { background:#fff; border-radius:8px; padding:16px; border-left:4px solid var(--primary);
+  box-shadow:0 1px 4px rgba(0,0,0,0.07); }
+.cust-kpi-card.green  { border-left-color:var(--green); }
+.cust-kpi-card.orange { border-left-color:var(--orange); }
+.cust-kpi-card.purple { border-left-color:#6f42c1; }
+
+/* Service tags */
+.svc-tag { display:inline-block; background:#e9ecef; color:#495057; font-size:10px;
+  font-weight:600; padding:2px 7px; border-radius:10px; margin:1px; }
+
+/* Lead status & type badges */
+.badge-converted     { background: #d4edda; color: #155724; }
+.badge-not-converted { background: #f8d7da; color: #721c24; }
+.badge-hold          { background: #fff3cd; color: #856404; }
+.badge-business      { background: #cce5ff; color: #004085; }
+.badge-retail        { background: #e2d9f3; color: #3d1a78; }
+.badge-source        { background: #e2e3e5; color: #383d41; }
+
+/* Leads KPI strip */
+.leads-kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:18px; }
+.leads-kpi-card { background:#fff; border-radius:8px; padding:14px 16px; border-left:4px solid var(--primary); box-shadow:0 1px 4px rgba(0,0,0,0.07); }
+.leads-kpi-card.green  { border-left-color:var(--green); }
+.leads-kpi-card.red    { border-left-color:var(--red); }
+.leads-kpi-card.yellow { border-left-color:var(--yellow); }
+.leads-kpi-card .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); }
+.leads-kpi-card .kpi-value { font-size:28px; font-weight:700; margin:4px 0 2px; }
+
+/* Cash balance card */
+.cash-balance-card {
+  background: linear-gradient(135deg, #1a2332 0%, #0055a5 100%);
+  border-radius: 10px; padding: 24px; color: #fff; margin-bottom: 20px;
+}
+.cash-balance-card .label { font-size: 13px; opacity: 0.8; }
+.cash-balance-card .amount { font-size: 42px; font-weight: 800; margin: 8px 0; }
+.cash-balance-card .sub-amounts { display: flex; gap: 24px; margin-top: 12px; }
+.cash-balance-card .sub { font-size: 13px; opacity: 0.8; }
+.cash-balance-card .sub strong { display: block; font-size: 16px; opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ════════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="brand">CPR</div>
+      <div class="tagline">Cell Phone Repair — Sales Tracker</div>
+    </div>
+    <h2>Sign In</h2>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="Enter username" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password" required>
+      </div>
+      <div id="login-error"></div>
+      <button type="submit" class="btn btn-primary btn-full" style="margin-top:8px">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- ══ APP ═══════════════════════════════════════════════════════════════════ -->
+<div id="app" class="hidden">
+  <header>
+    <div class="header-brand"><span>CPR</span> Sales Tracker</div>
+    <nav>
+      <button class="nav-btn active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="nav-btn" data-tab="new-sale">➕ New Sale</button>
+      <button class="nav-btn" data-tab="transactions">📋 Transactions</button>
+      <button class="nav-btn" data-tab="cash">💵 Cash</button>
+      <button class="nav-btn" data-tab="reports">📈 Reports</button>
+      <button class="nav-btn" data-tab="customers">🧑‍💼 Customers</button>
+      <button class="nav-btn" data-tab="leads">👥 Leads</button>
+    </nav>
+    <div class="header-user">
+      <span id="header-username"></span>
+      <button class="btn btn-outline btn-sm" onclick="logout()" style="border-color:rgba(255,255,255,0.4);color:#fff">Logout</button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ══ DASHBOARD ════════════════════════════════════════════════════════ -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="page-title">Dashboard</div>
+      <div class="kpi-grid" id="kpi-cards">
+        <div class="kpi-card"><div class="kpi-label">Today's Revenue</div><div class="kpi-value" id="kpi-today-rev">—</div><div class="kpi-sub" id="kpi-today-count"></div></div>
+        <div class="kpi-card green"><div class="kpi-label">This Week</div><div class="kpi-value" id="kpi-week-rev">—</div><div class="kpi-sub" id="kpi-week-count"></div></div>
+        <div class="kpi-card orange"><div class="kpi-label">This Month</div><div class="kpi-value" id="kpi-month-rev">—</div><div class="kpi-sub" id="kpi-month-count"></div></div>
+        <div class="kpi-card cash"><div class="kpi-label">Cash In Hand</div><div class="kpi-value" id="kpi-cash">—</div><div class="kpi-sub">Net cash available</div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Today's Category Breakdown</h3>
+            <div class="date-quick-btns">
+              <button class="btn btn-outline btn-sm dash-period active" data-p="daily">Day</button>
+              <button class="btn btn-outline btn-sm dash-period" data-p="weekly">Week</button>
+              <button class="btn btn-outline btn-sm dash-period" data-p="monthly">Month</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:center">
+              <div class="chart-container" style="height:220px"><canvas id="chart-category"></canvas></div>
+              <div id="category-legend"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Payment Method Split</h3></div>
+          <div class="card-body">
+            <div class="chart-container" style="height:260px"><canvas id="chart-payment"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>Recent Transactions</h3>
+          <button class="btn btn-outline btn-sm" onclick="showTab('transactions')">View All</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table id="recent-table">
+              <thead><tr>
+                <th>Date</th><th>TXN ID</th><th>Category</th><th>Item / Model</th>
+                <th>Payment</th><th class="text-right">Net Total</th>
+              </tr></thead>
+              <tbody id="recent-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ NEW SALE ═══════════════════════════════════════════════════════════ -->
+    <section id="tab-new-sale" class="tab-content">
+      <div class="page-title">New Sale Entry</div>
+      <div class="card">
+        <div class="card-header"><h3>Transaction Details</h3></div>
+        <div class="card-body">
+          <form id="sale-form">
+            <div class="sale-form-grid">
+              <div class="form-group">
+                <label>Date *</label>
+                <input type="date" id="f-date" required>
+              </div>
+              <div class="form-group">
+                <label>Transaction ID</label>
+                <input type="text" id="f-txn-id" placeholder="Auto-generated">
+              </div>
+              <div class="form-group">
+                <label>Category *</label>
+                <select id="f-category" required>
+                  <option value="">Select category</option>
+                  <option>Repair</option>
+                  <option>Accessories</option>
+                  <option>Device Sale</option>
+                  <option>Cases</option>
+                  <option>Privacy Glass</option>
+                  <option>Pre Order</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Item / Model *</label>
+                <select id="f-item" required></select>
+              </div>
+              <div class="form-group" id="screen-type-group" style="display:none">
+                <label>Screen Type</label>
+                <select id="f-screen-type">
+                  <option value="">— None —</option>
+                  <option>LCD</option>
+                  <option>OEM</option>
+                  <option>Soft OLED</option>
+                  <option>Hard OLED</option>
+                  <option>Back Glass</option>
+                  <option>Refurb Screen</option>
+                  <option>Ipad Digitizer</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="form-group" id="repair-type-group" style="display:none">
+                <label>Repair Type</label>
+                <select id="f-repair-type"></select>
+              </div>
+              <div class="form-group">
+                <label>IMEI / Serial #</label>
+                <input type="text" id="f-imei" placeholder="Optional">
+              </div>
+              <div class="form-group">
+                <label>Quantity</label>
+                <input type="number" id="f-qty" value="1" min="0.1" step="0.1" oninput="recalc()">
+              </div>
+              <div class="form-group">
+                <label>Unit Price ($) *</label>
+                <input type="number" id="f-price" placeholder="0.00" step="0.01" min="0" oninput="recalc()" required>
+              </div>
+              <div class="form-group">
+                <label>Discount ($)</label>
+                <input type="number" id="f-discount" placeholder="0.00" step="0.01" min="0" value="0" oninput="recalc()">
+              </div>
+              <div class="form-group">
+                <label>Payment Method *</label>
+                <select id="f-payment" required onchange="onPaymentChange()">
+                  <option value="">Select method</option>
+                  <option>Cash</option>
+                  <option>Square Mobile - Cash</option>
+                  <option>Square Mobile</option>
+                  <option>Square Console</option>
+                  <option>RepairQ</option>
+                  <option>Bank Zelle</option>
+                  <option>PayPal</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Customer Name</label>
+                <input type="text" id="f-cust-name" placeholder="Optional">
+              </div>
+              <div class="form-group">
+                <label>Customer Phone</label>
+                <input type="text" id="f-cust-phone" placeholder="Optional">
+              </div>
+              <div class="form-group">
+                <label>Customer Email</label>
+                <input type="email" id="f-cust-email" placeholder="Optional">
+              </div>
+              <div class="form-group" id="repair-time-group">
+                <label>Repair Time / Issue</label>
+                <input type="text" id="f-repair-time" placeholder="e.g. screen, battery">
+              </div>
+              <div class="form-group span-2">
+                <label>Issue Description</label>
+                <input type="text" id="f-issue" placeholder="Short issue description">
+              </div>
+              <div class="form-group span-3">
+                <label>Notes</label>
+                <textarea id="f-notes" rows="2" placeholder="Pre-order: T-total$ P-paid$ B-balance$, any remarks..."></textarea>
+              </div>
+            </div>
+
+            <div class="calc-row">
+              <div class="calc-field">
+                <label>Line Total</label>
+                <div class="val" id="calc-line">$0.00</div>
+              </div>
+              <div class="calc-field">
+                <label>Tax Rate</label>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                  <input type="number" id="f-tax-rate" value="9.875" step="0.001" min="0" max="30"
+                    style="width:80px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:14px"
+                    oninput="recalc()">
+                  <span style="color:var(--text-muted)">%</span>
+                </div>
+              </div>
+              <div class="calc-field">
+                <label>Tax Amount</label>
+                <div class="val" id="calc-tax">$0.00</div>
+              </div>
+              <div class="calc-field net">
+                <label>Net Total (with tax)</label>
+                <div class="val" id="calc-net">$0.00</div>
+              </div>
+            </div>
+
+            <div class="flex-end mt-4">
+              <button type="button" class="btn btn-outline" onclick="resetSaleForm()">Clear Form</button>
+              <button type="submit" class="btn btn-success" id="sale-submit-btn">💾 Save Transaction</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ TRANSACTIONS ═══════════════════════════════════════════════════════ -->
+    <section id="tab-transactions" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="page-title" style="margin-bottom:0">Transactions</div>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body" style="padding:14px 18px">
+          <div class="filter-bar">
+            <div class="date-quick-btns">
+              <button class="btn btn-outline btn-sm txn-quick active" data-q="today">Today</button>
+              <button class="btn btn-outline btn-sm txn-quick" data-q="week">This Week</button>
+              <button class="btn btn-outline btn-sm txn-quick" data-q="month">This Month</button>
+              <button class="btn btn-outline btn-sm txn-quick" data-q="all">All</button>
+            </div>
+            <div class="form-group">
+              <label>From</label>
+              <input type="date" id="txn-start">
+            </div>
+            <div class="form-group">
+              <label>To</label>
+              <input type="date" id="txn-end">
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="txn-category">
+                <option value="">All</option>
+                <option>Repair</option><option>Accessories</option><option>Device Sale</option>
+                <option>Cases</option><option>Privacy Glass</option><option>Pre Order</option><option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Payment</label>
+              <select id="txn-payment">
+                <option value="">All</option>
+                <option>Cash</option><option>Square Mobile - Cash</option>
+                <option>Square Mobile</option><option>Square Console</option>
+                <option>RepairQ</option><option>Bank Zelle</option><option>PayPal</option><option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Search</label>
+              <input type="text" id="txn-search" placeholder="Name, item, TXN ID..." style="min-width:160px">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadTransactions()" style="align-self:flex-end">Filter</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Date</th><th>TXN ID</th><th>Category</th><th>Item / Model</th>
+                <th>Screen</th><th>Qty</th><th>Unit $</th><th>Discount</th>
+                <th>Tax</th><th class="text-right">Net Total</th>
+                <th>Payment</th><th>Customer</th><th>Issue</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="txn-tbody"></tbody>
+              <tfoot id="txn-tfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ CASH ═══════════════════════════════════════════════════════════════ -->
+    <section id="tab-cash" class="tab-content">
+      <div class="page-title">Cash Management</div>
+
+      <div class="cash-balance-card" id="cash-balance-card">
+        <div class="label">💵 Cash In Hand</div>
+        <div class="amount" id="cash-balance-amt">$0.00</div>
+        <div class="sub-amounts">
+          <div class="sub"><strong id="cash-received-amt">$0.00</strong>Total Received (Cash)</div>
+          <div class="sub"><strong id="cash-handedover-amt">$0.00</strong>Handed Over</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Record Cash Handover</h3></div>
+          <div class="card-body">
+            <form id="handover-form">
+              <div class="form-group">
+                <label>Date *</label>
+                <input type="date" id="h-date" required>
+              </div>
+              <div class="form-group">
+                <label>Handed To *</label>
+                <input type="text" id="h-to" placeholder="e.g. Ravin" required>
+              </div>
+              <div class="form-group">
+                <label>Amount ($) *</label>
+                <input type="number" id="h-amount" placeholder="0.00" step="0.01" min="0" required>
+              </div>
+              <div class="form-group">
+                <label>Date Received By Them</label>
+                <input type="date" id="h-received">
+              </div>
+              <div class="form-group">
+                <label>Notes</label>
+                <textarea id="h-notes" rows="2" placeholder="Optional notes"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-full">Record Handover</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>Handover History</h3></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Date</th><th>To</th><th>Amount</th><th>Received</th><th></th></tr></thead>
+                <tbody id="handover-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>Cash Transactions</h3>
+          <div class="date-quick-btns">
+            <button class="btn btn-outline btn-sm cash-quick active" data-q="month">This Month</button>
+            <button class="btn btn-outline btn-sm cash-quick" data-q="all">All Time</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>TXN ID</th><th>Category</th><th>Item</th><th>Payment</th><th class="text-right">Amount</th></tr></thead>
+              <tbody id="cash-txn-tbody"></tbody>
+              <tfoot id="cash-txn-tfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ REPORTS ════════════════════════════════════════════════════════════ -->
+    <section id="tab-reports" class="tab-content">
+      <div class="page-title">Reports & Analytics</div>
+
+      <div class="card mb-4">
+        <div class="card-body" style="padding:14px 18px">
+          <div class="filter-bar">
+            <div class="date-quick-btns">
+              <button class="btn btn-primary btn-sm rpt-period active" data-p="daily">Daily</button>
+              <button class="btn btn-outline btn-sm rpt-period" data-p="weekly">Weekly</button>
+              <button class="btn btn-outline btn-sm rpt-period" data-p="monthly">Monthly</button>
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="rpt-date">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadReports()" style="align-self:flex-end">Run Report</button>
+          </div>
+          <div id="rpt-period-label" style="margin-top:8px;font-size:13px;color:var(--text-muted)"></div>
+        </div>
+      </div>
+
+      <!-- Summary KPIs -->
+      <div class="kpi-grid" id="rpt-kpis" style="margin-bottom:16px"></div>
+
+      <div class="grid-2 mb-4">
+        <div class="card">
+          <div class="card-header"><h3>Revenue by Category</h3></div>
+          <div class="card-body">
+            <div class="chart-container" style="height:260px"><canvas id="rpt-chart-category"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Revenue Trend</h3></div>
+          <div class="card-body">
+            <div class="chart-container" style="height:260px"><canvas id="rpt-chart-trend"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Category Breakdown</h3></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap"><table>
+              <thead><tr><th>Category</th><th>Txns</th><th class="text-right">Revenue</th><th class="text-right">% of Total</th></tr></thead>
+              <tbody id="rpt-cat-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Payment Method Breakdown</h3></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap"><table>
+              <thead><tr><th>Method</th><th>Txns</th><th class="text-right">Revenue</th></tr></thead>
+              <tbody id="rpt-pay-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ CUSTOMERS ══════════════════════════════════════════════════════════ -->
+    <section id="tab-customers" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin-bottom:0">Customers</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="exportCustomersExcel()">⬇ Export to Excel</button>
+          <button class="btn btn-success" onclick="openCustModal()">＋ Add Customer</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="cust-kpi" id="cust-kpi">
+        <div class="cust-kpi-card"><div class="kpi-label">Total Customers</div><div class="kpi-value" id="ckpi-total">—</div></div>
+        <div class="cust-kpi-card green"><div class="kpi-label">New This Month</div><div class="kpi-value" id="ckpi-new">—</div></div>
+        <div class="cust-kpi-card orange"><div class="kpi-label">With Service History</div><div class="kpi-value" id="ckpi-active">—</div></div>
+        <div class="cust-kpi-card purple"><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="ckpi-rev">—</div></div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card mb-4">
+        <div class="card-body" style="padding:14px 18px">
+          <div class="filter-bar">
+            <div class="form-group">
+              <label>Search</label>
+              <input type="text" id="cust-search" placeholder="Name, phone, email, company, city…" style="min-width:220px">
+            </div>
+            <div class="form-group">
+              <label>Type</label>
+              <select id="cust-type-filter">
+                <option value="">All Types</option>
+                <option>Business</option>
+                <option>Retail</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>City</label>
+              <input type="text" id="cust-city-filter" placeholder="Filter by city">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadCustomers()" style="align-self:flex-end">Filter</button>
+            <button class="btn btn-outline btn-sm" onclick="clearCustFilters()" style="align-self:flex-end">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table id="cust-table">
+              <thead><tr>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Location</th>
+                <th>Type</th>
+                <th>Services Interested</th>
+                <th>Visits</th>
+                <th class="text-right">Total Spent</th>
+                <th>Last Visit</th>
+                <th>Actions</th>
+              </tr></thead>
+              <tbody id="cust-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ LEADS ══════════════════════════════════════════════════════════════ -->
+    <section id="tab-leads" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin-bottom:0">Leads &amp; Customers</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="exportLeadsExcel()">⬇ Export to Excel</button>
+          <button class="btn btn-success" onclick="openLeadModal()">＋ New Lead</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="leads-kpi" id="leads-kpi">
+        <div class="leads-kpi-card"><div class="kpi-label">Total Leads</div><div class="kpi-value" id="lkpi-total">—</div></div>
+        <div class="leads-kpi-card green"><div class="kpi-label">Converted</div><div class="kpi-value" id="lkpi-converted">—</div></div>
+        <div class="leads-kpi-card red"><div class="kpi-label">Not Yet</div><div class="kpi-value" id="lkpi-not">—</div></div>
+        <div class="leads-kpi-card yellow"><div class="kpi-label">On Hold</div><div class="kpi-value" id="lkpi-hold">—</div></div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card mb-4">
+        <div class="card-body" style="padding:14px 18px">
+          <div class="filter-bar">
+            <div class="form-group">
+              <label>Search</label>
+              <input type="text" id="lead-search" placeholder="Name, email, phone, company…" style="min-width:200px">
+            </div>
+            <div class="form-group">
+              <label>Lead Type</label>
+              <select id="lead-type-filter">
+                <option value="">All Types</option>
+                <option>Business</option>
+                <option>Retail</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Lead Source</label>
+              <select id="lead-source-filter">
+                <option value="">All Sources</option>
+                <option>Walk-in</option><option>Phone Call</option><option>Website</option>
+                <option>Google Search</option><option>Yelp</option><option>Facebook</option>
+                <option>Instagram</option><option>Referral</option><option>T-Mobile Referral</option>
+                <option>AT&amp;T Referral</option><option>Xfinity Referral</option><option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="lead-status-filter">
+                <option value="">All Status</option>
+                <option value="Yes">Converted</option>
+                <option value="No">Not Yet</option>
+                <option value="Hold">On Hold</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="lead-cat-filter">
+                <option value="">All Categories</option>
+                <option>Repair</option><option>Accessories</option><option>Device Sale</option>
+                <option>Cases</option><option>Privacy Glass</option><option>Pre Order</option><option>Other</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadLeads()" style="align-self:flex-end">Filter</button>
+            <button class="btn btn-outline btn-sm" onclick="clearLeadFilters()" style="align-self:flex-end">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Name</th><th>Company</th><th>Phone</th><th>Email</th>
+                <th>Type</th><th>Source</th><th>Category</th><th>Status</th>
+                <th>Notes</th><th>Added</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="leads-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══ EDIT MODAL ════════════════════════════════════════════════════════════ -->
+<div id="edit-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Edit Transaction</h3>
+      <button class="close-btn" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="edit-form">
+        <div class="sale-form-grid">
+          <div class="form-group"><label>Date *</label><input type="date" id="e-date" required></div>
+          <div class="form-group"><label>Transaction ID</label><input type="text" id="e-txn-id"></div>
+          <div class="form-group"><label>Category *</label>
+            <select id="e-category" required onchange="onEditCategoryChange()">
+              <option value="">Select</option>
+              <option>Repair</option><option>Accessories</option><option>Device Sale</option>
+              <option>Cases</option><option>Privacy Glass</option><option>Pre Order</option><option>Other</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Item / Model *</label><select id="e-item" required></select></div>
+          <div class="form-group" id="e-screen-group">
+            <label>Screen Type</label>
+            <select id="e-screen-type">
+              <option value="">— None —</option>
+              <option>LCD</option><option>OEM</option><option>Soft OLED</option><option>Hard OLED</option>
+              <option>Back Glass</option><option>Refurb Screen</option><option>Ipad Digitizer</option><option>Other</option>
+            </select>
+          </div>
+          <div class="form-group" id="e-repair-type-group" style="display:none">
+            <label>Repair Type</label>
+            <select id="e-repair-type"></select>
+          </div>
+          <div class="form-group"><label>IMEI / Serial</label><input type="text" id="e-imei"></div>
+          <div class="form-group"><label>Qty</label><input type="number" id="e-qty" step="0.1" min="0.1" oninput="recalcEdit()"></div>
+          <div class="form-group"><label>Unit Price ($)</label><input type="number" id="e-price" step="0.01" min="0" oninput="recalcEdit()"></div>
+          <div class="form-group"><label>Discount ($)</label><input type="number" id="e-discount" step="0.01" min="0" oninput="recalcEdit()"></div>
+          <div class="form-group"><label>Payment Method</label>
+            <select id="e-payment" onchange="onEditPaymentChange()">
+              <option value="">Select</option>
+              <option>Cash</option><option>Square Mobile - Cash</option><option>Square Mobile</option>
+              <option>Square Console</option><option>RepairQ</option><option>Bank Zelle</option>
+              <option>PayPal</option><option>Other</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Tax Rate (%)</label>
+            <input type="number" id="e-tax-rate" step="0.001" min="0" value="9.875" oninput="recalcEdit()">
+          </div>
+          <div class="form-group"><label>Customer Name</label><input type="text" id="e-cust-name"></div>
+          <div class="form-group"><label>Customer Phone</label><input type="text" id="e-cust-phone"></div>
+          <div class="form-group"><label>Customer Email</label><input type="email" id="e-cust-email"></div>
+          <div class="form-group"><label>Repair Time / Issue</label><input type="text" id="e-repair-time"></div>
+          <div class="form-group span-2"><label>Issue</label><input type="text" id="e-issue"></div>
+          <div class="form-group span-3"><label>Notes</label><textarea id="e-notes" rows="2"></textarea></div>
+        </div>
+        <div class="calc-row" style="margin-top:14px">
+          <div class="calc-field"><label>Line Total</label><div class="val" id="e-calc-line">$0.00</div></div>
+          <div class="calc-field"><label>Tax</label><div class="val" id="e-calc-tax">$0.00</div></div>
+          <div class="calc-field net"><label>Net Total</label><div class="val" id="e-calc-net">$0.00</div></div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-success" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CUSTOMER FORM MODAL ═══════════════════════════════════════════════════ -->
+<div id="cust-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-header">
+      <h3 id="cust-modal-title">Add Customer</h3>
+      <button class="close-btn" onclick="closeCustModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="cust-form">
+
+        <div class="section-title" style="margin-bottom:12px">Personal Information</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group">
+            <label>First Name *</label>
+            <input type="text" id="c-first" placeholder="First name" required>
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="c-last" placeholder="Last name">
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="c-phone" placeholder="e.g. 415-555-0100">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="c-email" placeholder="email@example.com">
+          </div>
+          <div class="form-group">
+            <label>Company Name</label>
+            <input type="text" id="c-company" placeholder="Business / company (optional)">
+          </div>
+          <div class="form-group">
+            <label>Customer Type</label>
+            <select id="c-type">
+              <option value="Retail">Retail</option>
+              <option value="Business">Business</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Preferred Contact</label>
+            <select id="c-preferred-contact">
+              <option value="">— Select —</option>
+              <option>Phone Call</option>
+              <option>Text / SMS</option>
+              <option>Email</option>
+              <option>WhatsApp</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin:18px 0 12px">Location</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group" style="grid-column:span 2">
+            <label>Street Address</label>
+            <input type="text" id="c-address" placeholder="123 Main St">
+          </div>
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="c-city" placeholder="San Francisco">
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input type="text" id="c-state" placeholder="CA" maxlength="2" style="text-transform:uppercase">
+          </div>
+          <div class="form-group">
+            <label>ZIP Code</label>
+            <input type="text" id="c-zip" placeholder="94117">
+          </div>
+        </div>
+
+        <div class="section-title" style="margin:18px 0 12px">Services &amp; Notes</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group" style="grid-column:span 2">
+            <label>Services Interested In</label>
+            <div id="c-services-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#f8f9fa;border-radius:6px;border:1px solid var(--border)">
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Repair"> Screen Repair</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Battery"> Battery Replacement</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Device Sale"> Device Sale / Trade-in</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Accessories"> Accessories</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Cases"> Cases &amp; Covers</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Privacy Glass"> Screen Protectors</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="MacBook"> MacBook / Laptop Repair</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Data Recovery"> Data Recovery</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Water Damage"> Water Damage</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;cursor:pointer"><input type="checkbox" value="Business Account"> Business Account</label>
+            </div>
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Notes</label>
+            <textarea id="c-notes" rows="3" placeholder="VIP customer, allergies, preferences, referral info…"></textarea>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeCustModal()">Cancel</button>
+      <button class="btn btn-success" onclick="saveCustomer()">💾 Save Customer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CUSTOMER PROFILE MODAL ════════════════════════════════════════════════ -->
+<div id="profile-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:920px">
+    <div class="modal-header" style="background:#1a2332;color:#fff;border-radius:10px 10px 0 0">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div id="profile-avatar" class="avatar avatar-lg"></div>
+        <div>
+          <h3 id="profile-name" style="color:#fff;font-size:18px"></h3>
+          <div id="profile-subtitle" style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:2px"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-sm" id="profile-edit-btn"
+          style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+          onclick="editFromProfile()">✏ Edit</button>
+        <button class="close-btn" style="color:rgba(255,255,255,0.8)" onclick="closeProfileModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:20px">
+
+      <!-- Stats bar -->
+      <div class="profile-stats-bar" id="profile-stats"></div>
+
+      <!-- Two-col layout -->
+      <div class="profile-two-col">
+
+        <!-- Left: contact + location -->
+        <div>
+          <div class="section-title" style="margin-bottom:10px">Contact &amp; Location</div>
+          <div id="profile-contact" class="card" style="padding:14px"></div>
+
+          <div class="section-title" style="margin:16px 0 10px">Services Interested In</div>
+          <div id="profile-services" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+
+          <div id="profile-notes-wrap" style="margin-top:16px">
+            <div class="section-title" style="margin-bottom:6px">Notes</div>
+            <div id="profile-notes" style="font-size:13px;color:var(--text-muted);background:#f8f9fa;border-radius:6px;padding:10px"></div>
+          </div>
+        </div>
+
+        <!-- Right: service history -->
+        <div>
+          <div class="section-title" style="margin-bottom:10px">Service History</div>
+          <div id="profile-history" class="table-wrap"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LEAD MODAL ════════════════════════════════════════════════════════════ -->
+<div id="lead-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:720px">
+    <div class="modal-header">
+      <h3 id="lead-modal-title">New Lead</h3>
+      <button class="close-btn" onclick="closeLeadModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="lead-form">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group">
+            <label>First Name *</label>
+            <input type="text" id="l-first" placeholder="First name" required>
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="l-last" placeholder="Last name">
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="l-phone" placeholder="e.g. 415-555-0100">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="l-email" placeholder="email@example.com">
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Company Name</label>
+            <input type="text" id="l-company" placeholder="Business / company name (optional)">
+          </div>
+          <div class="form-group">
+            <label>Lead Type *</label>
+            <select id="l-type" required>
+              <option value="">Select type</option>
+              <option>Business</option>
+              <option>Retail</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Lead Source</label>
+            <select id="l-source">
+              <option value="">Select source</option>
+              <option>Walk-in</option>
+              <option>Phone Call</option>
+              <option>Website</option>
+              <option>Google Search</option>
+              <option>Yelp</option>
+              <option>Facebook</option>
+              <option>Instagram</option>
+              <option>Referral</option>
+              <option>T-Mobile Referral</option>
+              <option>AT&amp;T Referral</option>
+              <option>Xfinity Referral</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="l-category">
+              <option value="">Select category</option>
+              <option>Repair</option>
+              <option>Accessories</option>
+              <option>Device Sale</option>
+              <option>Cases</option>
+              <option>Privacy Glass</option>
+              <option>Pre Order</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Lead Status</label>
+            <select id="l-status">
+              <option value="No">Not Yet</option>
+              <option value="Hold">On Hold</option>
+              <option value="Yes">Converted</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Notes</label>
+            <textarea id="l-notes" rows="3" placeholder="Any additional details, follow-up notes…"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeLeadModal()">Cancel</button>
+      <button class="btn btn-success" onclick="saveLead()">💾 Save Lead</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══ MODEL LIST ═══════════════════════════════════════════════════════════════
+const MODEL_GROUPS = [
+  { label: 'iPhone', items: [
+    'iPhone 6','iPhone 6 Plus','iPhone 6S','iPhone 6S Plus',
+    'iPhone SE (1st Gen 2016)',
+    'iPhone 7','iPhone 7 Plus',
+    'iPhone 8','iPhone 8 Plus',
+    'iPhone X','iPhone XR','iPhone XS','iPhone XS Max',
+    'iPhone SE (2nd Gen 2020)',
+    'iPhone 11','iPhone 11 Pro','iPhone 11 Pro Max',
+    'iPhone 12','iPhone 12 Mini','iPhone 12 Pro','iPhone 12 Pro Max',
+    'iPhone SE (3rd Gen 2022)',
+    'iPhone 13','iPhone 13 Mini','iPhone 13 Pro','iPhone 13 Pro Max',
+    'iPhone 14','iPhone 14 Plus','iPhone 14 Pro','iPhone 14 Pro Max',
+    'iPhone 15','iPhone 15 Plus','iPhone 15 Pro','iPhone 15 Pro Max',
+    'iPhone 16','iPhone 16 Plus','iPhone 16 Pro','iPhone 16 Pro Max','iPhone 16e',
+    'iPhone 17','iPhone 17 Plus','iPhone 17 Pro','iPhone 17 Pro Max',
+  ]},
+  { label: 'Samsung Galaxy S Series', items: [
+    'Galaxy S9','Galaxy S9+',
+    'Galaxy S10e','Galaxy S10','Galaxy S10+','Galaxy S10 5G',
+    'Galaxy S20','Galaxy S20+','Galaxy S20 Ultra','Galaxy S20 FE',
+    'Galaxy S21','Galaxy S21+','Galaxy S21 Ultra','Galaxy S21 FE',
+    'Galaxy S22','Galaxy S22+','Galaxy S22 Ultra',
+    'Galaxy S23','Galaxy S23+','Galaxy S23 Ultra','Galaxy S23 FE',
+    'Galaxy S24','Galaxy S24+','Galaxy S24 Ultra','Galaxy S24 FE',
+    'Galaxy S25','Galaxy S25+','Galaxy S25 Ultra',
+  ]},
+  { label: 'Samsung Galaxy A Series', items: [
+    'Galaxy A03','Galaxy A04','Galaxy A05','Galaxy A06',
+    'Galaxy A12','Galaxy A13','Galaxy A14','Galaxy A15',
+    'Galaxy A23','Galaxy A24','Galaxy A25',
+    'Galaxy A32','Galaxy A33','Galaxy A34','Galaxy A35',
+    'Galaxy A52','Galaxy A53','Galaxy A54','Galaxy A55',
+    'Galaxy A71','Galaxy A72','Galaxy A73',
+  ]},
+  { label: 'Samsung Galaxy Z Series', items: [
+    'Galaxy Z Flip 4','Galaxy Z Flip 5','Galaxy Z Flip 6',
+    'Galaxy Z Fold 4','Galaxy Z Fold 5','Galaxy Z Fold 6',
+  ]},
+  { label: 'MacBook', items: ['MacBook Air','MacBook Pro'] },
+  { label: 'Laptop', items: ['Dell Laptop','Lenovo Laptop','HP Laptop'] },
+  { label: 'iPad', items: ['iPad','iPad Pro','iPad Air','iPad Mini'] },
+  { label: 'Other', items: ['Gaming Console','Other'] },
+];
+
+function buildModelOptionsHTML() {
+  return '<option value="">Select device / item</option>' +
+    MODEL_GROUPS.map(g =>
+      `<optgroup label="${g.label}">${g.items.map(m => `<option>${m}</option>`).join('')}</optgroup>`
+    ).join('');
+}
+
+function populateModelSelects() {
+  const html = buildModelOptionsHTML();
+  $('f-item').innerHTML = html;
+  $('e-item').innerHTML = html;
+}
+
+// ── REPAIR TYPE DROPDOWN ──────────────────────────────────────────────────────
+const REPAIR_TYPE_GROUPS = [
+  { label: 'Screen & Glass', items: [
+    'Screen Replacement', 'Back Glass Replacement', 'Digitizer Replacement',
+    'Screen Protector Installation', 'Lens Cover Replacement',
+  ]},
+  { label: 'Ports & Connectivity', items: [
+    'Charging Port Repair', 'Charging Port Cleaning',
+    'USB-C Port Repair', 'Headphone Jack Repair',
+    'SIM Card Reader Repair', 'WiFi / Antenna Repair',
+    'Bluetooth Repair', 'NFC Repair',
+  ]},
+  { label: 'Camera', items: [
+    'Front Camera Repair', 'Back Camera Repair',
+    'Camera Lens Replacement', 'Flash / Torch Repair',
+  ]},
+  { label: 'Audio', items: [
+    'Loud Speaker Repair', 'Ear Speaker / Earpiece Repair',
+    'Microphone Repair', 'Ringer / Vibration Motor Repair',
+  ]},
+  { label: 'Power & Battery', items: [
+    'Battery Replacement', 'Power Button Repair',
+    'Volume Button Repair', 'Mute / Silent Switch Repair',
+  ]},
+  { label: 'Biometrics & Security', items: [
+    'Face ID Repair', 'Touch ID / Fingerprint Repair',
+    'Home Button Repair',
+  ]},
+  { label: 'Body & Frame', items: [
+    'Frame / Housing Replacement', 'Back Cover Replacement',
+    'Water Damage Repair / Cleaning', 'Corrosion Cleaning',
+  ]},
+  { label: 'Software & Data', items: [
+    'Software / iOS / Android Restore', 'Factory Reset / Hard Reset',
+    'Data Backup & Transfer', 'Data Recovery',
+    'Network / Carrier Unlock', 'iCloud Bypass',
+  ]},
+  { label: 'MacBook / Laptop', items: [
+    'MacBook Screen / Display Replacement', 'Keyboard Replacement',
+    'Trackpad / Touchpad Repair', 'Battery Replacement (Laptop)',
+    'Logic Board / Motherboard Repair', 'RAM Upgrade',
+    'SSD / Hard Drive Upgrade', 'Fan Replacement / Thermal Paste',
+    'USB-C / Thunderbolt Port Repair (Laptop)', 'MagSafe Port Repair',
+    'Liquid Damage Repair (Laptop)', 'OS Reinstall / Software Repair',
+    'Overheating Repair',
+  ]},
+  { label: 'Other', items: ['Other Repair'] },
+];
+
+function buildRepairTypeOptions() {
+  return '<option value="">— Select repair type —</option>' +
+    REPAIR_TYPE_GROUPS.map(g =>
+      `<optgroup label="${g.label}">${g.items.map(m => `<option>${m}</option>`).join('')}</optgroup>`
+    ).join('');
+}
+
+function populateRepairTypeSelects() {
+  const html = buildRepairTypeOptions();
+  $('f-repair-type').innerHTML = html;
+  $('e-repair-type').innerHTML = html;
+}
+
+function setSelectValue(id, value) {
+  const sel = $(id);
+  if (!value) { sel.value = ''; return; }
+  sel.value = value;
+  if (sel.value !== value) {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = value;
+    sel.insertBefore(opt, sel.options[1]);
+    sel.value = value;
+  }
+}
+
+// ══ STATE ════════════════════════════════════════════════════════════════════
+let currentUser = null;
+let editingId = null;
+let charts = {};
+const TAX_FREE_METHODS = ['Cash', 'Square Mobile - Cash'];
+const DEFAULT_TAX_RATE = 9.875;
+
+// ══ UTILITIES ════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + (parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+const fmtDate = s => s ? new Date(s+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+const today = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+};
+
+async function api(method, url, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'}, credentials:'include' };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (r.status === 401) { showLogin(); return null; }
+  return r.json();
+}
+
+function showToast(msg, type='success') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function categoryBadge(cat) {
+  const map = {
+    'Repair':'repair','Accessories':'accessories','Device Sale':'device-sale',
+    'Cases':'cases','Privacy Glass':'privacy-glass','Pre Order':'pre-order','Other':'other'
+  };
+  return `<span class="badge badge-${map[cat]||'other'}">${cat||'—'}</span>`;
+}
+
+function paymentBadge(p) {
+  if (!p) return '—';
+  if (p.includes('Cash')) return `<span class="badge badge-cash">${p}</span>`;
+  if (p.includes('Square')) return `<span class="badge badge-square">${p}</span>`;
+  if (p === 'RepairQ') return `<span class="badge badge-repairq">${p}</span>`;
+  return `<span class="badge badge-other">${p}</span>`;
+}
+
+function getWeekRange(ds) {
+  const d = new Date(ds+'T00:00:00'), day = d.getDay();
+  d.setDate(d.getDate() - (day===0?6:day-1));
+  const s = d.toISOString().split('T')[0];
+  d.setDate(d.getDate()+6);
+  return { start: s, end: d.toISOString().split('T')[0] };
+}
+
+function destroyChart(key) {
+  if (charts[key]) { charts[key].destroy(); delete charts[key]; }
+}
+
+const CAT_COLORS = {
+  'Repair':'#0055a5','Accessories':'#fd7e14','Device Sale':'#00a651',
+  'Cases':'#6f42c1','Privacy Glass':'#20c997','Pre Order':'#ffc107','Other':'#6c757d'
+};
+const CAT_ORDER = ['Repair','Device Sale','Accessories','Cases','Privacy Glass','Pre Order','Other'];
+
+// ══ AUTH ═════════════════════════════════════════════════════════════════════
+function showLogin() {
+  $('login-screen').style.display = 'flex';
+  $('app').classList.add('hidden');
+}
+
+function showApp(user) {
+  currentUser = user;
+  $('login-screen').style.display = 'none';
+  $('app').classList.remove('hidden');
+  $('header-username').textContent = user.fullName || user.username;
+}
+
+$('login-form').onsubmit = async e => {
+  e.preventDefault();
+  const err = $('login-error');
+  err.style.display = 'none';
+  const data = await api('POST','/api/auth/login',{
+    username: $('login-username').value,
+    password: $('login-password').value
+  });
+  if (data?.error) { err.textContent = data.error; err.style.display = 'block'; return; }
+  if (data?.id) { showApp(data); initApp(); }
+};
+
+async function logout() {
+  await api('POST','/api/auth/logout');
+  currentUser = null;
+  showLogin();
+}
+
+// ══ NAVIGATION ═══════════════════════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  $('tab-'+name)?.classList.add('active');
+  document.querySelector(`.nav-btn[data-tab="${name}"]`)?.classList.add('active');
+
+  if (name === 'dashboard') loadDashboard();
+  else if (name === 'transactions') loadTransactions();
+  else if (name === 'cash') loadCash();
+  else if (name === 'reports') loadReports();
+  else if (name === 'new-sale') initNewSale();
+  else if (name === 'customers') loadCustomers();
+  else if (name === 'leads') loadLeads();
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.onclick = () => showTab(btn.dataset.tab);
+});
+
+// ══ INIT ═════════════════════════════════════════════════════════════════════
+async function initApp() {
+  setupDashboardPeriodButtons();
+  loadDashboard();
+}
+
+async function init() {
+  const user = await api('GET','/api/auth/me');
+  if (user?.id) { showApp(user); initApp(); }
+  else showLogin();
+}
+
+// ══ DASHBOARD ════════════════════════════════════════════════════════════════
+function setupDashboardPeriodButtons() {
+  document.querySelectorAll('.dash-period').forEach(btn => {
+    btn.onclick = function() {
+      document.querySelectorAll('.dash-period').forEach(b => {
+        b.classList.remove('active'); b.classList.add('btn-outline'); b.classList.remove('btn-primary');
+      });
+      this.classList.add('active','btn-primary'); this.classList.remove('btn-outline');
+      loadDashboardCharts(this.dataset.p);
+    };
+  });
+}
+
+async function loadDashboard() {
+  const kpi = await api('GET','/api/summary/kpi');
+  if (!kpi) return;
+  $('kpi-today-rev').textContent = fmt(kpi.today.revenue);
+  $('kpi-today-count').textContent = `${kpi.today.count} transaction${kpi.today.count!==1?'s':''}`;
+  $('kpi-week-rev').textContent  = fmt(kpi.week.revenue);
+  $('kpi-week-count').textContent = `${kpi.week.count} transactions`;
+  $('kpi-month-rev').textContent = fmt(kpi.month.revenue);
+  $('kpi-month-count').textContent = `${kpi.month.count} transactions`;
+  $('kpi-cash').textContent = fmt(kpi.cashInHand);
+
+  loadDashboardCharts('daily');
+  loadRecentTransactions();
+}
+
+async function loadDashboardCharts(period) {
+  const data = await api('GET',`/api/summary?type=${period}&date=${today()}`);
+  if (!data) return;
+
+  // Category chart
+  destroyChart('category');
+  const cats = data.byCategory.filter(c => c.net_total > 0);
+  if (cats.length > 0) {
+    charts['category'] = new Chart($('chart-category'), {
+      type: 'doughnut',
+      data: {
+        labels: cats.map(c=>c.category),
+        datasets: [{ data: cats.map(c=>c.net_total), backgroundColor: cats.map(c=>CAT_COLORS[c.category]||'#aaa'), borderWidth: 2 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} } }
+    });
+
+    const total = cats.reduce((s,c)=>s+c.net_total,0);
+    $('category-legend').innerHTML = cats.map(c => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:12px;height:12px;border-radius:3px;background:${CAT_COLORS[c.category]||'#aaa'};flex-shrink:0"></div>
+        <span style="font-size:12px;flex:1">${c.category}</span>
+        <strong style="font-size:12px">${fmt(c.net_total)}</strong>
+        <span style="font-size:11px;color:var(--text-muted)">${total>0?(c.net_total/total*100).toFixed(0)+'%':''}</span>
+      </div>`).join('');
+  } else {
+    $('category-legend').innerHTML = '<p class="text-muted text-center" style="padding:20px;font-size:13px">No data for this period</p>';
+  }
+
+  // Payment chart
+  destroyChart('payment');
+  const pays = data.byPayment.filter(p => p.net_total > 0);
+  if (pays.length > 0) {
+    const payColors = ['#0055a5','#00a651','#fd7e14','#6f42c1','#20c997','#ffc107','#dc3545','#6c757d'];
+    charts['payment'] = new Chart($('chart-payment'), {
+      type: 'bar',
+      data: {
+        labels: pays.map(p=>p.payment_method||'Unknown'),
+        datasets: [{ data: pays.map(p=>p.net_total), backgroundColor: payColors, borderRadius: 4 }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        plugins:{ legend:{display:false} },
+        scales:{ x:{ ticks:{ callback: v=>'$'+v.toLocaleString() } } }
+      }
+    });
+  }
+}
+
+async function loadRecentTransactions() {
+  const rows = await api('GET',`/api/transactions?start_date=${today()}&end_date=${today()}`);
+  if (!rows) return;
+  const tbody = $('recent-tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No transactions today</td></tr>'; return; }
+  tbody.innerHTML = rows.slice(0,15).map(r => `<tr>
+    <td>${fmtDate(r.date)}</td>
+    <td><code style="font-size:12px">${r.transaction_id||'—'}</code></td>
+    <td>${categoryBadge(r.category)}</td>
+    <td>${r.item_or_model||'—'}</td>
+    <td>${paymentBadge(r.payment_method)}</td>
+    <td class="text-right text-green">${fmt(r.net_total)}</td>
+  </tr>`).join('');
+}
+
+// ══ NEW SALE ══════════════════════════════════════════════════════════════════
+async function initNewSale() {
+  $('f-date').value = today();
+  const nid = await api('GET','/api/transactions/next-id');
+  if (nid) $('f-txn-id').value = nid.nextId;
+  $('f-category').focus();
+}
+
+$('f-category').onchange = function() {
+  const v = this.value;
+  const showScreen = ['Repair','Pre Order'].includes(v);
+  const showRepair = v === 'Repair';
+  $('screen-type-group').style.display  = showScreen ? '' : 'none';
+  $('repair-type-group').style.display  = showRepair ? '' : 'none';
+  if (!showScreen) $('f-screen-type').value  = '';
+  if (!showRepair) $('f-repair-type').value  = '';
+};
+
+function onPaymentChange() {
+  const p = $('f-payment').value;
+  if (TAX_FREE_METHODS.includes(p)) $('f-tax-rate').value = '0';
+  else $('f-tax-rate').value = DEFAULT_TAX_RATE;
+  recalc();
+}
+
+function recalc() {
+  const qty = parseFloat($('f-qty').value)||0;
+  const price = parseFloat($('f-price').value)||0;
+  const disc = parseFloat($('f-discount').value)||0;
+  const rate = parseFloat($('f-tax-rate').value)||0;
+  const line = Math.max(0, qty*price - disc);
+  const tax = line * rate/100;
+  const net = line + tax;
+  $('calc-line').textContent = fmt(line);
+  $('calc-tax').textContent  = fmt(tax);
+  $('calc-net').textContent  = fmt(net);
+}
+
+function resetSaleForm() {
+  $('sale-form').reset();
+  $('f-date').value = today();
+  initNewSale();
+  $('screen-type-group').style.display  = 'none';
+  $('repair-type-group').style.display  = 'none';
+  $('calc-line').textContent = '$0.00';
+  $('calc-tax').textContent  = '$0.00';
+  $('calc-net').textContent  = '$0.00';
+}
+
+$('sale-form').onsubmit = async e => {
+  e.preventDefault();
+  const btn = $('sale-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const qty = parseFloat($('f-qty').value)||1;
+  const price = parseFloat($('f-price').value)||0;
+  const disc = parseFloat($('f-discount').value)||0;
+  const rate = parseFloat($('f-tax-rate').value)||0;
+  const line = Math.max(0, qty*price - disc);
+  const tax = line * rate/100;
+
+  const body = {
+    date: $('f-date').value,
+    transaction_id: $('f-txn-id').value.trim() || null,
+    category: $('f-category').value,
+    item_or_model: $('f-item').value.trim(),
+    screen_type: $('f-screen-type').value || null,
+    repair_type: $('f-repair-type').value || null,
+    imei_serial: $('f-imei').value.trim() || null,
+    quantity: qty, unit_price: price, discount: disc, tax: tax,
+    line_total: line, net_total: line + tax,
+    payment_method: $('f-payment').value,
+    customer_name: $('f-cust-name').value.trim() || null,
+    customer_phone: $('f-cust-phone').value.trim() || null,
+    customer_email: $('f-cust-email').value.trim() || null,
+    repair_time: $('f-repair-time').value.trim() || null,
+    issue: $('f-issue').value.trim() || null,
+    notes: $('f-notes').value.trim() || null
+  };
+
+  const res = await api('POST','/api/transactions', body);
+  btn.disabled = false;
+  btn.textContent = '💾 Save Transaction';
+
+  if (res?.error) { showToast(res.error, 'error'); return; }
+  if (res?.id) {
+    showToast(`✓ Saved ${res.transaction_id || 'transaction'} — ${fmt(res.net_total)}`, 'success');
+    resetSaleForm();
+  }
+};
+
+// ══ TRANSACTIONS ══════════════════════════════════════════════════════════════
+let txnQuickFilter = 'today';
+
+document.querySelectorAll('.txn-quick').forEach(btn => {
+  btn.onclick = function() {
+    document.querySelectorAll('.txn-quick').forEach(b => b.classList.remove('active','btn-primary'));
+    document.querySelectorAll('.txn-quick').forEach(b => b.classList.add('btn-outline'));
+    this.classList.add('active','btn-primary'); this.classList.remove('btn-outline');
+    txnQuickFilter = this.dataset.q;
+    applyTxnQuickFilter(txnQuickFilter);
+    loadTransactions();
+  };
+});
+
+function applyTxnQuickFilter(q) {
+  const t = today();
+  const { start: ws, end: we } = getWeekRange(t);
+  const ms = t.slice(0,8)+'01';
+  if (q==='today')      { $('txn-start').value = t;  $('txn-end').value = t; }
+  else if (q==='week')  { $('txn-start').value = ws; $('txn-end').value = we; }
+  else if (q==='month') { $('txn-start').value = ms; $('txn-end').value = t; }
+  else                  { $('txn-start').value = '';  $('txn-end').value = ''; }
+}
+
+async function loadTransactions() {
+  const params = new URLSearchParams();
+  const s = $('txn-start').value, e = $('txn-end').value;
+  const cat = $('txn-category').value, pay = $('txn-payment').value;
+  const search = $('txn-search').value.trim();
+  if (s) params.set('start_date', s);
+  if (e) params.set('end_date', e);
+  if (cat) params.set('category', cat);
+  if (pay) params.set('payment_method', pay);
+  if (search) params.set('search', search);
+
+  const rows = await api('GET',`/api/transactions?${params}`);
+  if (!rows) return;
+
+  const tbody = $('txn-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="14" class="empty-state">No transactions found</td></tr>';
+    $('txn-tfoot').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td>${fmtDate(r.date)}</td>
+    <td><code style="font-size:11px">${r.transaction_id||'—'}</code></td>
+    <td>${categoryBadge(r.category)}</td>
+    <td style="max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.item_or_model||'—'}</td>
+    <td style="font-size:12px">${r.screen_type||'—'}</td>
+    <td>${r.quantity}</td>
+    <td>${fmt(r.unit_price)}</td>
+    <td>${r.discount>0?fmt(r.discount):'—'}</td>
+    <td>${r.tax>0?fmt(r.tax):'—'}</td>
+    <td class="text-right text-green"><strong>${fmt(r.net_total)}</strong></td>
+    <td>${paymentBadge(r.payment_method)}</td>
+    <td style="font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.customer_name||'—'}</td>
+    <td style="font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.issue||r.repair_time||'—'}</td>
+    <td><div class="actions">
+      <button class="btn btn-outline btn-sm" onclick="openEditModal(${r.id})">✏</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteTransaction(${r.id})">✕</button>
+    </div></td>
+  </tr>`).join('');
+
+  const totalNet = rows.reduce((s,r)=>s+(r.net_total||0),0);
+  const totalLine = rows.reduce((s,r)=>s+(r.line_total||0),0);
+  const totalTax = rows.reduce((s,r)=>s+(r.tax||0),0);
+  $('txn-tfoot').innerHTML = `<tr class="tfoot">
+    <td colspan="8">Total (${rows.length} transactions)</td>
+    <td>${fmt(totalTax)}</td>
+    <td class="text-right">${fmt(totalNet)}</td>
+    <td colspan="4"></td>
+  </tr>`;
+}
+
+async function deleteTransaction(id) {
+  if (!confirm('Delete this transaction? This cannot be undone.')) return;
+  const r = await api('DELETE',`/api/transactions/${id}`);
+  if (r?.ok) { showToast('Transaction deleted'); loadTransactions(); }
+}
+
+function exportCSV() {
+  const rows = $('txn-tbody').querySelectorAll('tr');
+  if (!rows.length) { showToast('No data to export','info'); return; }
+  // Build from current API with same filters
+  const params = new URLSearchParams();
+  const s = $('txn-start').value, e = $('txn-end').value;
+  if (s) params.set('start_date', s);
+  if (e) params.set('end_date', e);
+  if ($('txn-category').value) params.set('category', $('txn-category').value);
+  if ($('txn-payment').value) params.set('payment_method', $('txn-payment').value);
+
+  api('GET',`/api/transactions?${params}`).then(data => {
+    if (!data?.length) return;
+    const cols = ['date','transaction_id','category','item_or_model','screen_type','repair_type','imei_serial',
+      'quantity','unit_price','discount','tax','line_total','net_total','payment_method',
+      'customer_name','customer_phone','customer_email','repair_time','issue','notes'];
+    const csv = [cols.join(','), ...data.map(r => cols.map(c => {
+      const v = r[c]??'';
+      return typeof v === 'string' && (v.includes(',') || v.includes('"'))
+        ? `"${v.replace(/"/g,'""')}"` : v;
+    }).join(','))].join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = `cpr-transactions-${today()}.csv`;
+    a.click();
+    showToast(`Exported ${data.length} rows`,'info');
+  });
+}
+
+// ══ EDIT MODAL ════════════════════════════════════════════════════════════════
+async function openEditModal(id) {
+  const r = await api('GET',`/api/transactions/${id}`);
+  if (!r) return;
+  editingId = id;
+  $('e-date').value = r.date||'';
+  $('e-txn-id').value = r.transaction_id||'';
+  $('e-category').value = r.category||'';
+  setSelectValue('e-item', r.item_or_model||'');
+  $('e-screen-type').value = r.screen_type||'';
+  $('e-repair-type').value = r.repair_type||'';
+  $('e-imei').value = r.imei_serial||'';
+  $('e-qty').value = r.quantity||1;
+  $('e-price').value = r.unit_price||0;
+  $('e-discount').value = r.discount||0;
+  const rate = r.line_total>0 ? (r.tax/r.line_total*100) : 0;
+  $('e-tax-rate').value = rate.toFixed(3);
+  $('e-payment').value = r.payment_method||'';
+  $('e-cust-name').value = r.customer_name||'';
+  $('e-cust-phone').value = r.customer_phone||'';
+  $('e-cust-email').value = r.customer_email||'';
+  $('e-repair-time').value = r.repair_time||'';
+  $('e-issue').value = r.issue||'';
+  $('e-notes').value = r.notes||'';
+  onEditCategoryChange();
+  recalcEdit();
+  $('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() { $('edit-modal').classList.add('hidden'); editingId = null; }
+
+function onEditCategoryChange() {
+  const v = $('e-category').value;
+  const showScreen = ['Repair','Pre Order'].includes(v);
+  const showRepair = v === 'Repair';
+  $('e-screen-group').style.display      = showScreen ? '' : 'none';
+  $('e-repair-type-group').style.display = showRepair ? '' : 'none';
+  if (!showRepair) $('e-repair-type').value = '';
+}
+
+function onEditPaymentChange() {
+  const p = $('e-payment').value;
+  if (TAX_FREE_METHODS.includes(p)) $('e-tax-rate').value = '0';
+  else if ($('e-tax-rate').value === '0') $('e-tax-rate').value = DEFAULT_TAX_RATE;
+  recalcEdit();
+}
+
+function recalcEdit() {
+  const qty = parseFloat($('e-qty').value)||0;
+  const price = parseFloat($('e-price').value)||0;
+  const disc = parseFloat($('e-discount').value)||0;
+  const rate = parseFloat($('e-tax-rate').value)||0;
+  const line = Math.max(0, qty*price - disc);
+  const tax = line * rate/100;
+  $('e-calc-line').textContent = fmt(line);
+  $('e-calc-tax').textContent  = fmt(tax);
+  $('e-calc-net').textContent  = fmt(line+tax);
+}
+
+async function saveEdit() {
+  const qty = parseFloat($('e-qty').value)||1;
+  const price = parseFloat($('e-price').value)||0;
+  const disc = parseFloat($('e-discount').value)||0;
+  const rate = parseFloat($('e-tax-rate').value)||0;
+  const line = Math.max(0, qty*price-disc);
+  const tax = line * rate/100;
+
+  const body = {
+    date: $('e-date').value,
+    transaction_id: $('e-txn-id').value.trim()||null,
+    category: $('e-category').value,
+    item_or_model: $('e-item').value.trim(),
+    screen_type: $('e-screen-type').value||null,
+    repair_type: $('e-repair-type').value||null,
+    imei_serial: $('e-imei').value.trim()||null,
+    quantity: qty, unit_price: price, discount: disc, tax,
+    line_total: line, net_total: line+tax,
+    payment_method: $('e-payment').value,
+    customer_name: $('e-cust-name').value.trim()||null,
+    customer_phone: $('e-cust-phone').value.trim()||null,
+    customer_email: $('e-cust-email').value.trim()||null,
+    repair_time: $('e-repair-time').value.trim()||null,
+    issue: $('e-issue').value.trim()||null,
+    notes: $('e-notes').value.trim()||null
+  };
+
+  const res = await api('PUT',`/api/transactions/${editingId}`, body);
+  if (res?.id) {
+    showToast('Transaction updated successfully');
+    closeEditModal();
+    loadTransactions();
+  } else {
+    showToast(res?.error||'Error saving','error');
+  }
+}
+
+$('edit-modal').onclick = e => { if (e.target === $('edit-modal')) closeEditModal(); };
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeEditModal(); });
+
+// ══ CASH ══════════════════════════════════════════════════════════════════════
+let cashQuickFilter = 'month';
+
+document.querySelectorAll('.cash-quick').forEach(btn => {
+  btn.onclick = function() {
+    document.querySelectorAll('.cash-quick').forEach(b => { b.classList.remove('active','btn-primary'); b.classList.add('btn-outline'); });
+    this.classList.add('active','btn-primary'); this.classList.remove('btn-outline');
+    cashQuickFilter = this.dataset.q;
+    loadCashTransactions();
+  };
+});
+
+async function loadCash() {
+  // Balance
+  const bal = await api('GET','/api/cash/balance');
+  if (bal) {
+    $('cash-balance-amt').textContent = fmt(bal.balance);
+    $('cash-received-amt').textContent = fmt(bal.totalReceived);
+    $('cash-handedover-amt').textContent = fmt(bal.totalHandedOver);
+  }
+  // Handovers
+  const hovers = await api('GET','/api/cash/handovers');
+  if (hovers) {
+    const tbody = $('handover-tbody');
+    if (!hovers.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No handovers recorded</td></tr>'; }
+    else tbody.innerHTML = hovers.map(h => `<tr>
+      <td>${fmtDate(h.date)}</td>
+      <td>${h.to_whom}</td>
+      <td class="text-green"><strong>${fmt(h.amount)}</strong></td>
+      <td style="font-size:12px">${h.received_date?fmtDate(h.received_date):'—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteHandover(${h.id})">✕</button></td>
+    </tr>`).join('');
+  }
+  loadCashTransactions();
+}
+
+async function loadCashTransactions() {
+  const params = new URLSearchParams();
+  if (cashQuickFilter === 'month') {
+    params.set('start_date', today().slice(0,8)+'01');
+    params.set('end_date', today());
+  }
+  const rows = await api('GET',`/api/cash/transactions?${params}`);
+  if (!rows) return;
+  const tbody = $('cash-txn-tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No cash transactions</td></tr>'; $('cash-txn-tfoot').innerHTML=''; return; }
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td>${fmtDate(r.date)}</td>
+    <td><code style="font-size:11px">${r.transaction_id||'—'}</code></td>
+    <td>${categoryBadge(r.category)}</td>
+    <td style="font-size:12px">${r.item_or_model||'—'}</td>
+    <td>${paymentBadge(r.payment_method)}</td>
+    <td class="text-right text-green"><strong>${fmt(r.net_total)}</strong></td>
+  </tr>`).join('');
+  const total = rows.reduce((s,r)=>s+(r.net_total||0),0);
+  $('cash-txn-tfoot').innerHTML = `<tr class="tfoot"><td colspan="5">Total (${rows.length} txns)</td><td class="text-right">${fmt(total)}</td></tr>`;
+}
+
+$('handover-form').onsubmit = async e => {
+  e.preventDefault();
+  const body = {
+    date: $('h-date').value,
+    to_whom: $('h-to').value.trim(),
+    amount: parseFloat($('h-amount').value)||0,
+    received_date: $('h-received').value||null,
+    notes: $('h-notes').value.trim()||null
+  };
+  const res = await api('POST','/api/cash/handovers', body);
+  if (res?.id) {
+    showToast(`Handover of ${fmt(res.amount)} recorded`);
+    $('handover-form').reset();
+    $('h-date').value = today();
+    loadCash();
+  } else {
+    showToast(res?.error||'Error','error');
+  }
+};
+
+async function deleteHandover(id) {
+  if (!confirm('Delete this handover record?')) return;
+  await api('DELETE',`/api/cash/handovers/${id}`);
+  showToast('Handover deleted');
+  loadCash();
+}
+
+// ══ REPORTS ═══════════════════════════════════════════════════════════════════
+let rptPeriod = 'daily';
+
+document.querySelectorAll('.rpt-period').forEach(btn => {
+  btn.onclick = function() {
+    document.querySelectorAll('.rpt-period').forEach(b => { b.classList.remove('active','btn-primary'); b.classList.add('btn-outline'); });
+    this.classList.add('active','btn-primary'); this.classList.remove('btn-outline');
+    rptPeriod = this.dataset.p;
+  };
+});
+
+async function loadReports() {
+  const date = $('rpt-date').value || today();
+  const data = await api('GET',`/api/summary?type=${rptPeriod}&date=${date}`);
+  if (!data) return;
+
+  // Period label
+  const { startDate, endDate } = data.period;
+  $('rpt-period-label').textContent = startDate === endDate ? `Showing: ${fmtDate(startDate)}` : `Showing: ${fmtDate(startDate)} — ${fmtDate(endDate)}`;
+
+  // KPIs
+  const t = data.totals;
+  $('rpt-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Net Revenue</div><div class="kpi-value">${fmt(t.total_net)}</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Sales Revenue</div><div class="kpi-value">${fmt(t.total_line)}</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Tax Collected</div><div class="kpi-value">${fmt(t.total_tax)}</div></div>
+    <div class="kpi-card cash"><div class="kpi-label">Transactions</div><div class="kpi-value">${t.transaction_count}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg Ticket</div><div class="kpi-value">${t.transaction_count>0?fmt(t.total_net/t.transaction_count):'$0.00'}</div></div>
+    <div class="kpi-card cash"><div class="kpi-label">Cash Sales</div><div class="kpi-value">${fmt(data.cashInPeriod)}</div></div>
+  `;
+
+  // Category chart
+  destroyChart('rpt-category');
+  const cats = data.byCategory.filter(c=>c.net_total>0);
+  if (cats.length) {
+    charts['rpt-category'] = new Chart($('rpt-chart-category'), {
+      type: 'bar',
+      data: {
+        labels: cats.map(c=>c.category),
+        datasets: [{ label:'Revenue', data: cats.map(c=>c.net_total), backgroundColor: cats.map(c=>CAT_COLORS[c.category]||'#aaa'), borderRadius:4 }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{ y:{ ticks:{ callback: v=>'$'+v.toLocaleString() } } }
+      }
+    });
+  }
+
+  // Trend chart
+  destroyChart('rpt-trend');
+  if (data.byDate.length) {
+    charts['rpt-trend'] = new Chart($('rpt-chart-trend'), {
+      type: 'line',
+      data: {
+        labels: data.byDate.map(d=>fmtDate(d.date)),
+        datasets: [{
+          label: 'Revenue', data: data.byDate.map(d=>d.net_total),
+          borderColor: '#0055a5', backgroundColor: 'rgba(0,85,165,0.1)',
+          fill: true, tension: 0.3, pointRadius: 4
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{ y:{ ticks:{ callback: v=>'$'+v.toLocaleString() } } }
+      }
+    });
+  }
+
+  // Category table
+  const total = data.totals.total_net;
+  $('rpt-cat-tbody').innerHTML = cats.length
+    ? cats.map(c=>`<tr>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${c.count}</td>
+        <td class="text-right"><strong>${fmt(c.net_total)}</strong></td>
+        <td class="text-right">${total>0?(c.net_total/total*100).toFixed(1)+'%':'0%'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="empty-state">No data</td></tr>';
+
+  // Payment table
+  $('rpt-pay-tbody').innerHTML = data.byPayment.length
+    ? data.byPayment.map(p=>`<tr>
+        <td>${paymentBadge(p.payment_method)}</td>
+        <td>${p.count}</td>
+        <td class="text-right"><strong>${fmt(p.net_total)}</strong></td>
+      </tr>`).join('')
+    : '<tr><td colspan="3" class="empty-state">No data</td></tr>';
+}
+
+// ══ CUSTOMERS ════════════════════════════════════════════════════════════════
+let editingCustId   = null;
+let profileCustId   = null;
+
+const AVATAR_PALETTE = ['#0055a5','#00a651','#fd7e14','#6f42c1','#20c997','#dc3545','#e91e8c','#795548'];
+function avatarColor(name) {
+  const c = (name||'?').toUpperCase().charCodeAt(0);
+  return AVATAR_PALETTE[c % AVATAR_PALETTE.length];
+}
+function initials(first, last) {
+  return ((first||'?')[0] + (last ? last[0] : '')).toUpperCase();
+}
+function custTypeBadge(t) {
+  if (t === 'Business') return '<span class="badge badge-business">Business</span>';
+  return '<span class="badge badge-retail">Retail</span>';
+}
+
+async function loadCustKPIs() {
+  const d = await api('GET', '/api/customers/summary');
+  if (!d) return;
+  $('ckpi-total').textContent  = d.total;
+  $('ckpi-new').textContent    = d.newMonth;
+  $('ckpi-active').textContent = d.withTxns;
+  $('ckpi-rev').textContent    = fmt(d.revenue);
+}
+
+async function loadCustomers() {
+  await loadCustKPIs();
+  const p = new URLSearchParams();
+  const s = $('cust-search').value.trim();
+  const t = $('cust-type-filter').value;
+  const c = $('cust-city-filter').value.trim();
+  if (s) p.set('search', s);
+  if (t) p.set('customer_type', t);
+  if (c) p.set('city', c);
+
+  const rows = await api('GET', `/api/customers?${p}`);
+  if (!rows) return;
+  const tbody = $('cust-tbody');
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No customers yet. Click "+ Add Customer" to get started.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ');
+    const loc      = [r.city, r.state].filter(Boolean).join(', ');
+    const tags     = r.services_interested
+      ? r.services_interested.split(',').map(s => `<span class="svc-tag">${s.trim()}</span>`).join('')
+      : '<span class="text-muted">—</span>';
+    const cats     = r.categories_used
+      ? [...new Set(r.categories_used.split(','))].slice(0,3).map(c => `<span class="svc-tag">${c.trim()}</span>`).join('')
+      : '';
+    return `<tr style="cursor:pointer" onclick="openProfileModal(${r.id})">
+      <td>
+        <div class="cust-name-cell">
+          <div class="avatar" style="background:${avatarColor(r.first_name)}">${initials(r.first_name, r.last_name)}</div>
+          <div>
+            <strong>${fullName}</strong>
+            ${r.company_name ? `<div class="cust-meta">🏢 ${r.company_name}</div>` : ''}
+          </div>
+        </div>
+      </td>
+      <td style="font-size:13px">${r.phone || '<span class="text-muted">—</span>'}</td>
+      <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.email || '<span class="text-muted">—</span>'}</td>
+      <td style="font-size:12px">${loc || '<span class="text-muted">—</span>'}</td>
+      <td>${custTypeBadge(r.customer_type)}</td>
+      <td style="max-width:160px">${tags}</td>
+      <td style="text-align:center"><strong>${r.total_visits || 0}</strong></td>
+      <td class="text-right text-green"><strong>${fmt(r.total_spent)}</strong></td>
+      <td style="font-size:12px;color:var(--text-muted)">${r.last_visit ? fmtDate(r.last_visit) : '—'}</td>
+      <td onclick="event.stopPropagation()">
+        <div class="actions">
+          <button class="btn btn-outline btn-sm" onclick="openCustModal(${r.id})">✏</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCustomer(${r.id})">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function clearCustFilters() {
+  $('cust-search').value = '';
+  $('cust-type-filter').value = '';
+  $('cust-city-filter').value = '';
+  loadCustomers();
+}
+
+// ── Customer form modal ───────────────────────────────────────────────────────
+async function openCustModal(id) {
+  editingCustId = id || null;
+  $('cust-modal-title').textContent = id ? 'Edit Customer' : 'Add Customer';
+  $('cust-form').reset();
+  // Clear checkboxes
+  $('c-services-checkboxes').querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+
+  if (id) {
+    const r = await api('GET', `/api/customers/${id}`);
+    if (!r) return;
+    $('c-first').value   = r.first_name   || '';
+    $('c-last').value    = r.last_name    || '';
+    $('c-phone').value   = r.phone        || '';
+    $('c-email').value   = r.email        || '';
+    $('c-company').value = r.company_name || '';
+    $('c-type').value    = r.customer_type || 'Retail';
+    $('c-preferred-contact').value = r.preferred_contact || '';
+    $('c-address').value = r.address || '';
+    $('c-city').value    = r.city    || '';
+    $('c-state').value   = (r.state  || '').toUpperCase();
+    $('c-zip').value     = r.zip     || '';
+    $('c-notes').value   = r.notes   || '';
+    if (r.services_interested) {
+      const selected = r.services_interested.split(',').map(s => s.trim());
+      $('c-services-checkboxes').querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.checked = selected.includes(cb.value);
+      });
+    }
+  }
+  $('cust-modal').classList.remove('hidden');
+  setTimeout(() => $('c-first').focus(), 50);
+}
+
+function closeCustModal() {
+  $('cust-modal').classList.add('hidden');
+  editingCustId = null;
+}
+
+function getServicesChecked() {
+  return [...$('c-services-checkboxes').querySelectorAll('input[type=checkbox]:checked')]
+    .map(cb => cb.value).join(', ') || null;
+}
+
+async function saveCustomer() {
+  if (!$('cust-form').reportValidity()) return;
+  const body = {
+    first_name:   $('c-first').value.trim(),
+    last_name:    $('c-last').value.trim()    || null,
+    phone:        $('c-phone').value.trim()   || null,
+    email:        $('c-email').value.trim()   || null,
+    company_name: $('c-company').value.trim() || null,
+    customer_type: $('c-type').value,
+    preferred_contact: $('c-preferred-contact').value || null,
+    address:      $('c-address').value.trim() || null,
+    city:         $('c-city').value.trim()    || null,
+    state:        $('c-state').value.trim().toUpperCase() || null,
+    zip:          $('c-zip').value.trim()     || null,
+    services_interested: getServicesChecked(),
+    notes:        $('c-notes').value.trim()   || null,
+  };
+
+  const url    = editingCustId ? `/api/customers/${editingCustId}` : '/api/customers';
+  const method = editingCustId ? 'PUT' : 'POST';
+  const res    = await api(method, url, body);
+
+  if (res?.id) {
+    showToast(editingCustId ? 'Customer updated' : `Customer added — ${body.first_name} ${body.last_name || ''}`.trim());
+    closeCustModal();
+    loadCustomers();
+  } else {
+    showToast(res?.error || 'Error saving', 'error');
+  }
+}
+
+async function deleteCustomer(id) {
+  if (!confirm('Delete this customer record? Their transaction history will remain.')) return;
+  const r = await api('DELETE', `/api/customers/${id}`);
+  if (r?.ok) { showToast('Customer deleted'); loadCustomers(); }
+}
+
+// ── Customer profile view ─────────────────────────────────────────────────────
+async function openProfileModal(id) {
+  profileCustId = id;
+  const [cust, history] = await Promise.all([
+    api('GET', `/api/customers/${id}`),
+    api('GET', `/api/customers/${id}/history`)
+  ]);
+  if (!cust) return;
+
+  const fullName = [cust.first_name, cust.last_name].filter(Boolean).join(' ');
+
+  // Header
+  const av = $('profile-avatar');
+  av.textContent = initials(cust.first_name, cust.last_name);
+  av.style.background = avatarColor(cust.first_name);
+  $('profile-name').textContent = fullName;
+  $('profile-subtitle').textContent = [
+    cust.customer_type,
+    cust.company_name,
+    [cust.city, cust.state].filter(Boolean).join(', ')
+  ].filter(Boolean).join(' · ');
+  $('profile-edit-btn').onclick = () => { closeProfileModal(); openCustModal(id); };
+
+  // Stats
+  const totalVisits = history?.length || 0;
+  const totalSpent  = history?.reduce((s, r) => s + (r.net_total || 0), 0) || 0;
+  const avgTicket   = totalVisits ? totalSpent / totalVisits : 0;
+  const lastVisit   = history?.length ? fmtDate(history[0].date) : '—';
+  $('profile-stats').innerHTML = `
+    <div class="profile-stat"><div class="ps-label">Total Visits</div><div class="ps-val">${totalVisits}</div></div>
+    <div class="profile-stat"><div class="ps-label">Total Spent</div><div class="ps-val green">${fmt(totalSpent)}</div></div>
+    <div class="profile-stat"><div class="ps-label">Avg Ticket</div><div class="ps-val">${fmt(avgTicket)}</div></div>
+    <div class="profile-stat"><div class="ps-label">Last Visit</div><div class="ps-val" style="font-size:14px">${lastVisit}</div></div>
+  `;
+
+  // Contact info
+  const contactRows = [
+    cust.phone   ? `<div class="info-row"><span class="info-icon">📞</span><div><span class="info-label">Phone</span><span class="info-val">${cust.phone}</span></div></div>` : '',
+    cust.email   ? `<div class="info-row"><span class="info-icon">✉</span><div><span class="info-label">Email</span><span class="info-val" style="word-break:break-all">${cust.email}</span></div></div>` : '',
+    cust.preferred_contact ? `<div class="info-row"><span class="info-icon">💬</span><div><span class="info-label">Preferred Contact</span><span class="info-val">${cust.preferred_contact}</span></div></div>` : '',
+    (cust.address || cust.city) ? `<div class="info-row"><span class="info-icon">📍</span><div><span class="info-label">Address</span><span class="info-val">${[cust.address, cust.city, cust.state, cust.zip].filter(Boolean).join(', ')}</span></div></div>` : '',
+    cust.company_name ? `<div class="info-row"><span class="info-icon">🏢</span><div><span class="info-label">Company</span><span class="info-val">${cust.company_name}</span></div></div>` : '',
+    `<div class="info-row"><span class="info-icon">👤</span><div><span class="info-label">Customer Type</span><span class="info-val">${cust.customer_type || 'Retail'}</span></div></div>`,
+    `<div class="info-row"><span class="info-icon">📅</span><div><span class="info-label">Customer Since</span><span class="info-val">${cust.created_at ? new Date(cust.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '—'}</span></div></div>`,
+  ].filter(Boolean).join('');
+  $('profile-contact').innerHTML = contactRows || '<p class="text-muted">No contact info recorded</p>';
+
+  // Services
+  if (cust.services_interested) {
+    $('profile-services').innerHTML = cust.services_interested.split(',')
+      .map(s => `<span class="svc-tag" style="background:#cce5ff;color:#004085;font-size:12px;padding:4px 10px">${s.trim()}</span>`).join('');
+  } else {
+    $('profile-services').innerHTML = '<span class="text-muted" style="font-size:13px">No services recorded</span>';
+  }
+
+  // Notes
+  if (cust.notes) {
+    $('profile-notes-wrap').style.display = '';
+    $('profile-notes').textContent = cust.notes;
+  } else {
+    $('profile-notes-wrap').style.display = 'none';
+  }
+
+  // Service history table
+  if (!history?.length) {
+    $('profile-history').innerHTML = '<div class="empty-state" style="padding:30px">No service history yet.<br><small>Transactions are matched by phone or email.</small></div>';
+  } else {
+    $('profile-history').innerHTML = `
+      <table>
+        <thead><tr><th>Date</th><th>TXN</th><th>Category</th><th>Repair Type</th><th>Item</th><th>Payment</th><th class="text-right">Total</th></tr></thead>
+        <tbody>${history.map(t => `<tr>
+          <td style="font-size:12px;white-space:nowrap">${fmtDate(t.date)}</td>
+          <td><code style="font-size:11px">${t.transaction_id || '—'}</code></td>
+          <td>${categoryBadge(t.category)}</td>
+          <td style="font-size:12px">${t.repair_type || '—'}</td>
+          <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.item_or_model || '—'}</td>
+          <td style="font-size:11px">${t.payment_method || '—'}</td>
+          <td class="text-right text-green"><strong>${fmt(t.net_total)}</strong></td>
+        </tr>`).join('')}</tbody>
+        <tfoot><tr class="tfoot">
+          <td colspan="6">Total (${history.length} visits)</td>
+          <td class="text-right">${fmt(totalSpent)}</td>
+        </tr></tfoot>
+      </table>`;
+  }
+
+  $('profile-modal').classList.remove('hidden');
+}
+
+function closeProfileModal() {
+  $('profile-modal').classList.add('hidden');
+  profileCustId = null;
+}
+
+function editFromProfile() {
+  if (profileCustId) { closeProfileModal(); openCustModal(profileCustId); }
+}
+
+// ── Export customers to Excel ─────────────────────────────────────────────────
+function exportCustomersExcel() {
+  const p = new URLSearchParams();
+  const s = $('cust-search').value.trim();
+  const t = $('cust-type-filter').value;
+  const c = $('cust-city-filter').value.trim();
+  if (s) p.set('search', s);
+  if (t) p.set('customer_type', t);
+  if (c) p.set('city', c);
+
+  api('GET', `/api/customers?${p}`).then(rows => {
+    if (!rows?.length) { showToast('No customers to export', 'info'); return; }
+
+    const headers = ['#','First Name','Last Name','Phone','Email','Company','Type',
+                     'Address','City','State','ZIP','Preferred Contact',
+                     'Services Interested','Total Visits','Total Spent','Last Visit','Notes'];
+    const data = [headers, ...rows.map((r, i) => [
+      i + 1,
+      r.first_name || '', r.last_name || '', r.phone || '', r.email || '',
+      r.company_name || '', r.customer_type || '',
+      r.address || '', r.city || '', r.state || '', r.zip || '',
+      r.preferred_contact || '', r.services_interested || '',
+      r.total_visits || 0,
+      parseFloat((r.total_spent || 0).toFixed(2)),
+      r.last_visit || '',
+      r.notes || '',
+    ])];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [
+      {wch:4},{wch:14},{wch:14},{wch:16},{wch:26},{wch:22},{wch:12},
+      {wch:22},{wch:14},{wch:6},{wch:8},{wch:16},{wch:30},{wch:8},{wch:12},{wch:12},{wch:30}
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+
+    // Summary sheet
+    api('GET', '/api/customers/summary').then(summary => {
+      if (summary) {
+        const ws2 = XLSX.utils.aoa_to_sheet([
+          ['CPR Sales Tracker — Customer Summary'],[''],
+          ['Total Customers',       summary.total],
+          ['New This Month',        summary.newMonth],
+          ['With Service History',  summary.withTxns],
+          ['Total Revenue',         `$${summary.revenue.toFixed(2)}`],
+          [''],
+          ['Exported on', new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})],
+        ]);
+        ws2['!cols'] = [{wch:22},{wch:16}];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+      }
+      XLSX.writeFile(wb, `CPR_Customers_${today()}.xlsx`);
+      showToast(`Exported ${rows.length} customers to Excel`, 'success');
+    });
+  });
+}
+
+// Close modals on outside click / Escape
+$('cust-modal').addEventListener('click', e => { if (e.target === $('cust-modal')) closeCustModal(); });
+$('profile-modal').addEventListener('click', e => { if (e.target === $('profile-modal')) closeProfileModal(); });
+$('cust-search').addEventListener('keydown', e => { if (e.key === 'Enter') loadCustomers(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeCustModal(); closeProfileModal(); }
+});
+
+// ══ LEADS ════════════════════════════════════════════════════════════════════
+let editingLeadId = null;
+
+const LEAD_SOURCES = [
+  'Walk-in','Phone Call','Website','Google Search','Yelp',
+  'Facebook','Instagram','Referral','T-Mobile Referral','AT&T Referral','Xfinity Referral','Other'
+];
+
+function leadStatusBadge(s) {
+  if (s === 'Yes')  return '<span class="badge badge-converted">✓ Converted</span>';
+  if (s === 'Hold') return '<span class="badge badge-hold">⏸ On Hold</span>';
+  return '<span class="badge badge-not-converted">◌ Not Yet</span>';
+}
+function leadTypeBadge(t) {
+  if (t === 'Business') return '<span class="badge badge-business">Business</span>';
+  if (t === 'Retail')   return '<span class="badge badge-retail">Retail</span>';
+  return t ? `<span class="badge badge-other">${t}</span>` : '—';
+}
+function leadSourceBadge(s) {
+  return s ? `<span class="badge badge-source">${s}</span>` : '—';
+}
+
+async function loadLeadsKPIs() {
+  const d = await api('GET', '/api/leads/summary');
+  if (!d) return;
+  $('lkpi-total').textContent     = d.total;
+  $('lkpi-converted').textContent = d.converted;
+  $('lkpi-not').textContent       = d.notYet;
+  $('lkpi-hold').textContent      = d.hold;
+}
+
+async function loadLeads() {
+  await loadLeadsKPIs();
+  const p = new URLSearchParams();
+  const search = $('lead-search').value.trim();
+  const type   = $('lead-type-filter').value;
+  const source = $('lead-source-filter').value;
+  const status = $('lead-status-filter').value;
+  const cat    = $('lead-cat-filter').value;
+  if (search) p.set('search', search);
+  if (type)   p.set('lead_type', type);
+  if (source) p.set('lead_source', source);
+  if (status) p.set('lead_status', status);
+  if (cat)    p.set('category', cat);
+
+  const rows = await api('GET', `/api/leads?${p}`);
+  if (!rows) return;
+  const tbody = $('leads-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No leads found. Click "+ New Lead" to add one.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => `<tr>
+    <td style="color:var(--text-muted);font-size:12px">${i + 1}</td>
+    <td><strong>${r.first_name || ''}${r.last_name ? ' ' + r.last_name : ''}</strong></td>
+    <td style="font-size:12px">${r.company_name || '<span class="text-muted">—</span>'}</td>
+    <td style="font-size:12px">${r.phone || '—'}</td>
+    <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.email || '—'}</td>
+    <td>${leadTypeBadge(r.lead_type)}</td>
+    <td>${leadSourceBadge(r.lead_source)}</td>
+    <td>${r.category ? categoryBadge(r.category) : '—'}</td>
+    <td>${leadStatusBadge(r.lead_status)}</td>
+    <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(r.notes||'').replace(/"/g,'&quot;')}">${r.notes || '—'}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${r.created_at ? new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</td>
+    <td><div class="actions">
+      <button class="btn btn-outline btn-sm" onclick="openLeadModal(${r.id})">✏</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteLead(${r.id})">✕</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function clearLeadFilters() {
+  $('lead-search').value = '';
+  $('lead-type-filter').value   = '';
+  $('lead-source-filter').value = '';
+  $('lead-status-filter').value = '';
+  $('lead-cat-filter').value    = '';
+  loadLeads();
+}
+
+async function openLeadModal(id) {
+  editingLeadId = id || null;
+  $('lead-modal-title').textContent = id ? 'Edit Lead' : 'New Lead';
+  $('lead-form').reset();
+
+  if (id) {
+    const r = await api('GET', `/api/leads/${id}`);
+    if (!r) return;
+    $('l-first').value   = r.first_name   || '';
+    $('l-last').value    = r.last_name    || '';
+    $('l-phone').value   = r.phone        || '';
+    $('l-email').value   = r.email        || '';
+    $('l-company').value = r.company_name || '';
+    $('l-type').value    = r.lead_type    || '';
+    $('l-source').value  = r.lead_source  || '';
+    $('l-category').value = r.category   || '';
+    $('l-status').value  = r.lead_status  || 'No';
+    $('l-notes').value   = r.notes        || '';
+  }
+  $('lead-modal').classList.remove('hidden');
+  setTimeout(() => $('l-first').focus(), 50);
+}
+
+function closeLeadModal() {
+  $('lead-modal').classList.add('hidden');
+  editingLeadId = null;
+}
+
+async function saveLead() {
+  if (!$('lead-form').reportValidity()) return;
+  const body = {
+    first_name:   $('l-first').value.trim(),
+    last_name:    $('l-last').value.trim()    || null,
+    email:        $('l-email').value.trim()   || null,
+    phone:        $('l-phone').value.trim()   || null,
+    company_name: $('l-company').value.trim() || null,
+    lead_type:    $('l-type').value,
+    lead_source:  $('l-source').value         || null,
+    category:     $('l-category').value       || null,
+    lead_status:  $('l-status').value         || 'No',
+    notes:        $('l-notes').value.trim()   || null,
+  };
+
+  const url    = editingLeadId ? `/api/leads/${editingLeadId}` : '/api/leads';
+  const method = editingLeadId ? 'PUT' : 'POST';
+  const res    = await api(method, url, body);
+
+  if (res?.id) {
+    showToast(editingLeadId ? 'Lead updated' : `Lead added — ${body.first_name} ${body.last_name || ''}`.trim());
+    closeLeadModal();
+    loadLeads();
+  } else {
+    showToast(res?.error || 'Error saving lead', 'error');
+  }
+}
+
+async function deleteLead(id) {
+  if (!confirm('Delete this lead? This cannot be undone.')) return;
+  const r = await api('DELETE', `/api/leads/${id}`);
+  if (r?.ok) { showToast('Lead deleted'); loadLeads(); }
+}
+
+function exportLeadsExcel() {
+  const p = new URLSearchParams();
+  const search = $('lead-search').value.trim();
+  const type   = $('lead-type-filter').value;
+  const source = $('lead-source-filter').value;
+  const status = $('lead-status-filter').value;
+  const cat    = $('lead-cat-filter').value;
+  if (search) p.set('search', search);
+  if (type)   p.set('lead_type', type);
+  if (source) p.set('lead_source', source);
+  if (status) p.set('lead_status', status);
+  if (cat)    p.set('category', cat);
+
+  api('GET', `/api/leads?${p}`).then(rows => {
+    if (!rows?.length) { showToast('No leads to export', 'info'); return; }
+
+    const headers = ['#','First Name','Last Name','Phone','Email','Company',
+                     'Lead Type','Lead Source','Category','Status','Notes','Date Added'];
+    const data = [headers, ...rows.map((r, i) => [
+      i + 1,
+      r.first_name || '',
+      r.last_name  || '',
+      r.phone      || '',
+      r.email      || '',
+      r.company_name || '',
+      r.lead_type  || '',
+      r.lead_source || '',
+      r.category   || '',
+      r.lead_status === 'Yes' ? 'Converted' : r.lead_status === 'Hold' ? 'On Hold' : 'Not Yet',
+      r.notes      || '',
+      r.created_at ? new Date(r.created_at).toLocaleDateString('en-US') : '',
+    ])];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Column widths
+    ws['!cols'] = [
+      {wch:4},{wch:14},{wch:14},{wch:16},{wch:26},{wch:22},
+      {wch:12},{wch:18},{wch:14},{wch:12},{wch:30},{wch:14}
+    ];
+
+    // Style header row bold (basic xlsx styling)
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cell = ws[XLSX.utils.encode_cell({r:0, c:C})];
+      if (cell) { cell.s = { font: { bold: true } }; }
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Leads');
+
+    // Summary sheet
+    api('GET', '/api/leads/summary').then(summary => {
+      if (summary) {
+        const summaryData = [
+          ['CPR Sales Tracker — Leads Summary'],
+          [''],
+          ['Total Leads',    summary.total],
+          ['Converted',      summary.converted],
+          ['Not Yet',        summary.notYet],
+          ['On Hold',        summary.hold],
+          [''],
+          ['Exported on', new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})],
+        ];
+        const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+        ws2['!cols'] = [{wch:20},{wch:12}];
+        XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+      }
+      XLSX.writeFile(wb, `CPR_Leads_${today()}.xlsx`);
+      showToast(`Exported ${rows.length} leads to Excel`, 'success');
+    });
+  });
+}
+
+$('lead-modal').addEventListener('click', e => { if (e.target === $('lead-modal')) closeLeadModal(); });
+$('lead-search').addEventListener('keydown', e => { if (e.key === 'Enter') loadLeads(); });
+
+// ══ STARTUP ════════════════════════════════════════════════════════════════════
+populateModelSelects();
+populateRepairTypeSelects();
+$('rpt-date').value = today();
+$('h-date').value  = today();
+applyTxnQuickFilter('today');
+init();
+</script>
+</body>
+</html>

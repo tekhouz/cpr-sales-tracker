@@ -1,0 +1,19 @@
+{
+  "name": "cpr-sales-tracker",
+  "version": "1.0.0",
+  "description": "CPR Cell Phone Repair - Daily Sales Tracking System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.9.0",
+    "express": "^4.22.1",
+    "express-session": "^1.19.0"
+  }
+}
