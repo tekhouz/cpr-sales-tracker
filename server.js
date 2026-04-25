@@ -5,6 +5,85 @@ const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
 const path = require('path');
 
+// ── INVENTORY CONSTANTS ───────────────────────────────────────────────────────
+const DEVICE_MODELS = {
+  'iPhone Parts': ['iPhone 6','iPhone 6 Plus','iPhone 6S','iPhone 6S Plus','iPhone SE (1st Gen)','iPhone 7','iPhone 7 Plus','iPhone 8','iPhone 8 Plus','iPhone X','iPhone XR','iPhone XS','iPhone XS Max','iPhone SE (2nd Gen)','iPhone 11','iPhone 11 Pro','iPhone 11 Pro Max','iPhone 12','iPhone 12 Mini','iPhone 12 Pro','iPhone 12 Pro Max','iPhone SE (3rd Gen)','iPhone 13','iPhone 13 Mini','iPhone 13 Pro','iPhone 13 Pro Max','iPhone 14','iPhone 14 Plus','iPhone 14 Pro','iPhone 14 Pro Max','iPhone 15','iPhone 15 Plus','iPhone 15 Pro','iPhone 15 Pro Max','iPhone 16','iPhone 16 Plus','iPhone 16 Pro','iPhone 16 Pro Max','iPhone 16e','iPhone 17','iPhone 17 Plus','iPhone 17 Pro','iPhone 17 Pro Max'],
+  'Samsung Phone Parts': ['Galaxy S8','Galaxy S9','Galaxy S10','Galaxy S10e','Galaxy S20','Galaxy S20+','Galaxy S20 Ultra','Galaxy S20 FE','Galaxy S21','Galaxy S21+','Galaxy S21 Ultra','Galaxy S21 FE','Galaxy S22','Galaxy S22+','Galaxy S22 Ultra','Galaxy S23','Galaxy S23+','Galaxy S23 Ultra','Galaxy S23 FE','Galaxy S24','Galaxy S24+','Galaxy S24 Ultra','Galaxy S24 FE','Galaxy S25','Galaxy S25+','Galaxy S25 Ultra','Galaxy S25 Edge','Galaxy A13','Galaxy A14','Galaxy A14 5G','Galaxy A15','Galaxy A15 5G','Galaxy A16','Galaxy A23','Galaxy A24','Galaxy A25','Galaxy A32','Galaxy A33','Galaxy A34','Galaxy A35','Galaxy A52','Galaxy A53','Galaxy A54','Galaxy A55','Galaxy Z Flip 4','Galaxy Z Flip 5','Galaxy Z Flip 6','Galaxy Z Fold 4','Galaxy Z Fold 5','Galaxy Z Fold 6'],
+  'Motorola Phone Parts': ['Moto G7','Moto G7 Plus','Moto G8','Moto G9','Moto G10','Moto G20','Moto G30','Moto G31','Moto G32','Moto G42','Moto G51','Moto G52','Moto G53','Moto G54','Moto G62','Moto G72','Moto G73','Moto G82','Moto G84','Moto G85','Moto G Power (2022)','Moto G Power (2023)','Moto G Power (2024)','Moto G Stylus (2022)','Moto G Stylus (2023)','Moto G Stylus (2024)','Moto Edge 20','Moto Edge 30','Moto Edge 40','Moto Edge 50','Moto Razr (2022)','Moto Razr (2023)','Moto Razr (2024)','Moto Razr+ (2023)','Moto Razr+ (2024)'],
+  'iPad Parts': ['iPad (5th Gen)','iPad (6th Gen)','iPad (7th Gen)','iPad (8th Gen)','iPad (9th Gen)','iPad (10th Gen)','iPad Mini (4th Gen)','iPad Mini (5th Gen)','iPad Mini (6th Gen)','iPad Mini (7th Gen)'],
+  'iPad Pro Parts': ['iPad Pro 9.7"','iPad Pro 10.5"','iPad Pro 11" (1st Gen)','iPad Pro 11" (2nd Gen)','iPad Pro 11" (3rd Gen)','iPad Pro 11" (4th Gen)','iPad Pro 12.9" (3rd Gen)','iPad Pro 12.9" (4th Gen)','iPad Pro 12.9" (5th Gen)','iPad Pro 12.9" (6th Gen)'],
+  'iPad Air Parts': ['iPad Air (3rd Gen)','iPad Air (4th Gen)','iPad Air (5th Gen)','iPad Air 11" (M2)','iPad Air 13" (M2)'],
+  'Macbook Air Parts': ['MacBook Air 13" (M1 2020)','MacBook Air 13" (M2 2022)','MacBook Air 15" (M2 2023)','MacBook Air 13" (M3 2024)','MacBook Air 15" (M3 2024)','MacBook Air 11" (2015)','MacBook Air 13" (2017)','MacBook Air 13" (2018)','MacBook Air 13" (2019)'],
+  'Macbook Pro Parts': ['MacBook Pro 13" (2017)','MacBook Pro 13" (2018)','MacBook Pro 13" (2019)','MacBook Pro 13" (2020)','MacBook Pro 13" (M1 2020)','MacBook Pro 13" (M2 2022)','MacBook Pro 14" (M1 Pro 2021)','MacBook Pro 14" (M2 Pro 2023)','MacBook Pro 14" (M3 2023)','MacBook Pro 14" (M3 Pro 2023)','MacBook Pro 14" (M4 2024)','MacBook Pro 16" (2019)','MacBook Pro 16" (M1 Pro 2021)','MacBook Pro 16" (M2 Pro 2023)','MacBook Pro 16" (M3 Pro 2023)','MacBook Pro 16" (M4 Pro 2024)'],
+  'Apple Devices': [
+    // iPhones — full range
+    'iPhone 6','iPhone 6 Plus','iPhone 6S','iPhone 6S Plus','iPhone SE (1st Gen)',
+    'iPhone 7','iPhone 7 Plus','iPhone 8','iPhone 8 Plus','iPhone X',
+    'iPhone XR','iPhone XS','iPhone XS Max','iPhone SE (2nd Gen)',
+    'iPhone 11','iPhone 11 Pro','iPhone 11 Pro Max',
+    'iPhone 12','iPhone 12 Mini','iPhone 12 Pro','iPhone 12 Pro Max',
+    'iPhone SE (3rd Gen)',
+    'iPhone 13','iPhone 13 Mini','iPhone 13 Pro','iPhone 13 Pro Max',
+    'iPhone 14','iPhone 14 Plus','iPhone 14 Pro','iPhone 14 Pro Max',
+    'iPhone 15','iPhone 15 Plus','iPhone 15 Pro','iPhone 15 Pro Max',
+    'iPhone 16','iPhone 16 Plus','iPhone 16 Pro','iPhone 16 Pro Max','iPhone 16e',
+    'iPhone 17','iPhone 17 Plus','iPhone 17 Pro','iPhone 17 Pro Max',
+    // iPads
+    'iPad (5th Gen)','iPad (6th Gen)','iPad (7th Gen)','iPad (8th Gen)','iPad (9th Gen)','iPad (10th Gen)',
+    'iPad Mini (4th Gen)','iPad Mini (5th Gen)','iPad Mini (6th Gen)','iPad Mini (7th Gen)',
+    'iPad Pro 9.7"','iPad Pro 10.5"',
+    'iPad Pro 11" (1st Gen)','iPad Pro 11" (2nd Gen)','iPad Pro 11" (3rd Gen)','iPad Pro 11" (4th Gen)',
+    'iPad Pro 12.9" (3rd Gen)','iPad Pro 12.9" (4th Gen)','iPad Pro 12.9" (5th Gen)','iPad Pro 12.9" (6th Gen)',
+    'iPad Air (3rd Gen)','iPad Air (4th Gen)','iPad Air (5th Gen)','iPad Air 11" (M2)','iPad Air 13" (M2)',
+    // MacBooks
+    'MacBook Air 11" (2015)','MacBook Air 13" (2017)','MacBook Air 13" (2018)','MacBook Air 13" (2019)',
+    'MacBook Air 13" (M1 2020)','MacBook Air 13" (M2 2022)','MacBook Air 15" (M2 2023)',
+    'MacBook Air 13" (M3 2024)','MacBook Air 15" (M3 2024)',
+    'MacBook Pro 13" (2017)','MacBook Pro 13" (2018)','MacBook Pro 13" (2019)','MacBook Pro 13" (2020)',
+    'MacBook Pro 13" (M1 2020)','MacBook Pro 13" (M2 2022)',
+    'MacBook Pro 14" (M1 Pro 2021)','MacBook Pro 14" (M2 Pro 2023)','MacBook Pro 14" (M3 2023)',
+    'MacBook Pro 14" (M3 Pro 2023)','MacBook Pro 14" (M4 2024)',
+    'MacBook Pro 16" (2019)','MacBook Pro 16" (M1 Pro 2021)','MacBook Pro 16" (M2 Pro 2023)',
+    'MacBook Pro 16" (M3 Pro 2023)','MacBook Pro 16" (M4 Pro 2024)',
+    // Accessories
+    'Magic Mouse','Magic Mouse 3','Magic Keyboard','Magic Keyboard with Touch ID','Magic Keyboard with Touch ID & Numeric Keypad',
+    'Magic Trackpad','Magic Trackpad 3',
+    'iPad Smart Keyboard','iPad Magic Keyboard','iPad Magic Keyboard Folio',
+    'AirPods (2nd Gen)','AirPods (3rd Gen)','AirPods Pro (1st Gen)','AirPods Pro (2nd Gen)','AirPods Max',
+    'Apple Watch Series 7','Apple Watch Series 8','Apple Watch Series 9','Apple Watch Series 10',
+    'Apple Watch Ultra','Apple Watch Ultra 2','Apple Watch SE',
+    'MagSafe Charger','USB-C Cable','Lightning Cable','Apple TV 4K','HomePod','HomePod Mini'
+  ],
+  'Samsung Devices': ['Galaxy S24','Galaxy S24+','Galaxy S24 Ultra','Galaxy S24 FE','Galaxy S25','Galaxy S25+','Galaxy S25 Ultra','Galaxy A15','Galaxy A15 5G','Galaxy A16','Galaxy A25','Galaxy A35','Galaxy A55','Galaxy Z Flip 6','Galaxy Z Fold 6'],
+  'Accessories': ['AirPods (2nd Gen)','AirPods (3rd Gen)','AirPods Pro (1st Gen)','AirPods Pro (2nd Gen)','AirPods Max','Apple Watch Series 7','Apple Watch Series 8','Apple Watch Series 9','Apple Watch Ultra','Apple Watch SE','MagSafe Charger','USB-C Cable','Lightning Cable','Screen Protector','Phone Case','iPad Case','Power Bank','Wireless Charger','Car Mount','Bluetooth Speaker'],
+  'Playstation Device': ['PlayStation 4','PlayStation 4 Slim','PlayStation 4 Pro','PlayStation 5','PlayStation 5 Slim','PlayStation 5 Digital Edition','PlayStation VR','PlayStation VR2','DualShock 4 Controller','DualSense Controller','DualSense Edge Controller','PlayStation Vita','Other PlayStation Device'],
+  'Dell': ['Dell XPS 13','Dell XPS 15','Dell XPS 17','Dell Inspiron 14','Dell Inspiron 15','Dell Inspiron 16','Dell Latitude 5420','Dell Latitude 5520','Dell Latitude 7420','Dell Latitude 7520','Dell Vostro 14','Dell Vostro 15','Dell Alienware m15','Dell Alienware m17','Dell Alienware x14','Dell Alienware x15','Dell Alienware x16','Other Dell Model'],
+  'HP': ['HP Spectre x360 13','HP Spectre x360 14','HP Spectre x360 15','HP Envy 13','HP Envy 14','HP Envy 15','HP Pavilion 14','HP Pavilion 15','HP EliteBook 840','HP EliteBook 850','HP ProBook 440','HP ProBook 450','HP OMEN 15','HP OMEN 16','HP Victus 15','HP Victus 16','Other HP Model'],
+  'Lenovo': ['ThinkPad X1 Carbon','ThinkPad X1 Extreme','ThinkPad T14','ThinkPad T14s','ThinkPad T15','ThinkPad E14','ThinkPad E15','ThinkPad L14','ThinkPad L15','IdeaPad 3','IdeaPad 5','IdeaPad Slim 5','IdeaPad Slim 7','Legion 5','Legion 5 Pro','Legion 7','Yoga 7','Yoga 9','Yoga Slim 7','Other Lenovo Model'],
+  'Nintendo': ['Nintendo Switch','Nintendo Switch Lite','Nintendo Switch OLED','Nintendo 3DS','Nintendo 3DS XL','Nintendo 2DS','New Nintendo 3DS','New Nintendo 3DS XL','Joy-Con Controllers','Nintendo Switch Pro Controller','Nintendo DS','Nintendo DS Lite','Other Nintendo Device'],
+  'Others': ['Other']
+};
+
+const PART_TYPES = {
+  'BTRY': 'Battery',
+  'SCRN': 'Screen / LCD',
+  'DIGI': 'Digitizer',
+  'CHPT': 'Charging Port',
+  'SPKR': 'Speaker',
+  'HOUS': 'Housing / Frame',
+  'BEZL': 'Bezel',
+  'BCASE': 'Back Case / Glass',
+  'TCASE': 'TPU Case',
+  'CMRA': 'Camera',
+  'PROX': 'Proximity Sensor',
+  'HMBT': 'Home Button',
+  'FRID': 'Face ID Module',
+  'VBRT': 'Vibrator Motor',
+  'MCRP': 'Microphone',
+  'FLSH': 'Flash',
+  'OTHER': 'Other'
+};
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -172,10 +251,30 @@ app.get('/api/transactions', requireAuth, (req, res) => {
 app.post('/api/transactions', requireAuth, (req, res) => {
   try {
     const t = req.body;
-    const defaults = {
-      transaction_id: null, screen_type: null, repair_type: null, imei_serial: null,
-      discount: 0, tax: 0, repair_time: null, issue: null, notes: null,
-      customer_name: null, customer_phone: null, customer_email: null
+    // Only pass columns that exist in the transactions table — extra fields
+    // (inventory_item_id etc.) cause better-sqlite3 to throw a TypeError
+    const insertData = {
+      date:             t.date,
+      transaction_id:   t.transaction_id   || null,
+      category:         t.category,
+      item_or_model:    t.item_or_model    || null,
+      screen_type:      t.screen_type      || null,
+      repair_type:      t.repair_type      || null,
+      imei_serial:      t.imei_serial      || null,
+      quantity:         t.quantity         ?? 1,
+      unit_price:       t.unit_price       ?? 0,
+      discount:         t.discount         ?? 0,
+      tax:              t.tax              ?? 0,
+      line_total:       t.line_total       ?? 0,
+      net_total:        t.net_total        ?? 0,
+      payment_method:   t.payment_method   || null,
+      customer_name:    t.customer_name    || null,
+      customer_phone:   t.customer_phone   || null,
+      customer_email:   t.customer_email   || null,
+      repair_time:      t.repair_time      || null,
+      issue:            t.issue            || null,
+      notes:            t.notes            || null,
+      created_by:       req.session.userId
     };
     const r = db.prepare(`
       INSERT INTO transactions
@@ -188,7 +287,7 @@ app.post('/api/transactions', requireAuth, (req, res) => {
          @quantity,@unit_price,@discount,@tax,@line_total,@net_total,
          @payment_method,@customer_name,@customer_phone,@customer_email,
          @repair_time,@issue,@notes,@created_by)
-    `).run({ ...defaults, ...t, created_by: req.session.userId });
+    `).run(insertData);
     const saved = db.prepare('SELECT * FROM transactions WHERE id=?').get(r.lastInsertRowid);
 
     // Auto-upsert customer from transaction customer info
@@ -220,6 +319,27 @@ app.post('/api/transactions', requireAuth, (req, res) => {
         if (validEmail) db.prepare('UPDATE customers SET email=? WHERE id=? AND (email IS NULL OR email="")').run(rawEmail, existing.id);
       }
     }
+
+    // Decrement inventory — main linked item (ALL categories)
+    if (t.inventory_item_id) {
+      const saleQty = parseFloat(t.quantity) || 1;
+      const itemId  = parseInt(t.inventory_item_id);
+      const txnRef  = saved.transaction_id || String(saved.id);
+      // UPSERT: create stock row if missing (negative start), otherwise subtract
+      const existing = db.prepare('SELECT id FROM inventory_stock WHERE item_id=?').get(itemId);
+      if (existing) {
+        db.prepare('UPDATE inventory_stock SET quantity=quantity-?, last_updated=CURRENT_TIMESTAMP WHERE item_id=?')
+          .run(saleQty, itemId);
+      } else {
+        db.prepare('INSERT INTO inventory_stock (item_id, quantity, min_quantity) VALUES (?, ?, 1)')
+          .run(itemId, -saleQty);
+      }
+      db.prepare(`
+        INSERT INTO inventory_movements (item_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
+        VALUES (?, 'OUT', ?, 'SALE', ?, ?, ?)
+      `).run(itemId, saleQty, txnRef, `${t.category} sale — TXN ${txnRef}`, req.session.userId);
+    }
+
 
     res.status(201).json(saved);
   } catch (err) {
@@ -398,6 +518,108 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_cust_type  ON customers(customer_type);
 `);
 
+// ── INVENTORY TABLES ─────────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS inventory_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    part_id TEXT UNIQUE NOT NULL,
+    asset_type TEXT,
+    part_type TEXT,
+    category TEXT,
+    model TEXT,
+    model_number TEXT,
+    color TEXT,
+    grade TEXT DEFAULT 'OEM',
+    status TEXT DEFAULT 'Active',
+    description TEXT,
+    supplier TEXT,
+    cost_price REAL DEFAULT 0,
+    sell_price REAL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS inventory_stock (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER UNIQUE NOT NULL,
+    quantity INTEGER DEFAULT 0,
+    min_quantity INTEGER DEFAULT 1,
+    location TEXT,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS inventory_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    movement_type TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    reference_type TEXT,
+    reference_id TEXT,
+    notes TEXT,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS purchase_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    po_number TEXT UNIQUE NOT NULL,
+    supplier TEXT,
+    status TEXT DEFAULT 'Draft',
+    order_date TEXT,
+    expected_date TEXT,
+    received_date TEXT,
+    total_amount REAL DEFAULT 0,
+    notes TEXT,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS po_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    po_id INTEGER NOT NULL,
+    item_id INTEGER NOT NULL,
+    quantity_ordered INTEGER NOT NULL,
+    quantity_received INTEGER DEFAULT 0,
+    unit_cost REAL DEFAULT 0,
+    total_cost REAL DEFAULT 0,
+    FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS purchase_requisitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pr_number TEXT UNIQUE NOT NULL,
+    status TEXT DEFAULT 'Pending',
+    priority TEXT DEFAULT 'Normal',
+    needed_by_date TEXT,
+    notes TEXT,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS pr_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pr_id INTEGER NOT NULL,
+    item_id INTEGER NOT NULL,
+    quantity INTEGER DEFAULT 1,
+    estimated_cost REAL DEFAULT 0,
+    notes TEXT,
+    FOREIGN KEY (pr_id) REFERENCES purchase_requisitions(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_inv_status    ON inventory_items(status);
+  CREATE INDEX IF NOT EXISTS idx_inv_asset     ON inventory_items(asset_type);
+  CREATE INDEX IF NOT EXISTS idx_inv_part_type ON inventory_items(part_type);
+  CREATE INDEX IF NOT EXISTS idx_mvt_item      ON inventory_movements(item_id);
+  CREATE INDEX IF NOT EXISTS idx_po_status     ON purchase_orders(status);
+  CREATE INDEX IF NOT EXISTS idx_pr_status     ON purchase_requisitions(status);
+`);
+
 app.get('/api/customers/summary', requireAuth, (req, res) => {
   const ms = localDate().slice(0,8) + '01';
   const total        = db.prepare('SELECT COUNT(*) as c FROM customers').get().c;
@@ -567,6 +789,386 @@ app.put('/api/leads/:id', requireAuth, (req, res) => {
 
 app.delete('/api/leads/:id', requireAuth, (req, res) => {
   db.prepare('DELETE FROM leads WHERE id=?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── INVENTORY ────────────────────────────────────────────────────────────────
+
+// GET /api/inventory/items/meta — asset types, part types, models for dropdowns
+app.get('/api/inventory/items/meta', requireAuth, (req, res) => {
+  const assetTypes = Object.keys(DEVICE_MODELS);
+  const partTypes = Object.entries(PART_TYPES).map(([code, label]) => ({ code, label }));
+  res.json({ assetTypes, partTypes, deviceModels: DEVICE_MODELS });
+});
+
+// GET /api/inventory/lookup — find best matching item by asset_type + model + optional color/grade/part_type
+app.get('/api/inventory/lookup', requireAuth, (req, res) => {
+  const { asset_type, model, color, grade, part_type } = req.query;
+  if (!model) return res.json(null);
+
+  // Hard filters: asset_type + model + part_type (distinct item types)
+  // Soft preference: color & grade only in ORDER BY — never block a match
+  let q = `
+    SELECT i.*, s.quantity, s.min_quantity, s.location
+    FROM inventory_items i
+    LEFT JOIN inventory_stock s ON s.item_id = i.id
+    WHERE i.status = 'Active'
+  `;
+  const params = [];
+  if (asset_type) { q += ' AND i.asset_type = ?'; params.push(asset_type); }
+  q += ' AND i.model = ?'; params.push(model);
+  if (part_type)  { q += ' AND i.part_type = ?';  params.push(part_type); }
+
+  // Prefer rows whose color/grade exactly match what was selected
+  q += ` ORDER BY
+    (CASE WHEN ? != '' AND i.color = ? THEN 2 ELSE 0 END) +
+    (CASE WHEN ? != '' AND i.grade = ? THEN 2 ELSE 0 END)
+    DESC LIMIT 1`;
+  params.push(color||'', color||'', grade||'', grade||'');
+
+  const item = db.prepare(q).get(...params);
+  res.json(item || null);
+});
+
+// GET /api/inventory/stock/check?model=X&part_type=Y
+app.get('/api/inventory/stock/check', requireAuth, (req, res) => {
+  const { model, part_type } = req.query;
+  let q = `
+    SELECT i.*, s.quantity, s.min_quantity, s.location
+    FROM inventory_items i
+    JOIN inventory_stock s ON s.item_id = i.id
+    WHERE i.status = 'Active'
+  `;
+  const p = [];
+  if (model)     { q += ' AND i.model = ?';     p.push(model); }
+  if (part_type) { q += ' AND i.part_type = ?'; p.push(part_type); }
+  res.json(db.prepare(q).all(...p));
+});
+
+// GET /api/inventory/items
+app.get('/api/inventory/items', requireAuth, (req, res) => {
+  const { asset_type, part_type, model, status, search } = req.query;
+  let q = `
+    SELECT i.*, s.quantity, s.min_quantity, s.location, s.last_updated,
+           COALESCE(m.qty_used, 0) AS qty_used,
+           (COALESCE(s.quantity, 0) + COALESCE(m.qty_used, 0)) AS total_qoh
+    FROM inventory_items i
+    LEFT JOIN inventory_stock s ON s.item_id = i.id
+    LEFT JOIN (
+      SELECT item_id, SUM(quantity) AS qty_used
+      FROM inventory_movements
+      WHERE movement_type = 'OUT'
+      GROUP BY item_id
+    ) m ON m.item_id = i.id
+    WHERE 1=1
+  `;
+  const p = [];
+  if (asset_type) { q += ' AND i.asset_type = ?'; p.push(asset_type); }
+  if (part_type)  { q += ' AND i.part_type = ?';  p.push(part_type); }
+  if (model)      { q += ' AND i.model = ?';       p.push(model); }
+  if (status)     { q += ' AND i.status = ?';      p.push(status); }
+  if (search) {
+    q += ' AND (i.part_id LIKE ? OR i.model LIKE ? OR i.description LIKE ? OR i.supplier LIKE ?)';
+    const s = `%${search}%`;
+    p.push(s, s, s, s);
+  }
+  q += ' ORDER BY i.asset_type, i.model, i.part_type';
+  res.json(db.prepare(q).all(...p));
+});
+
+// POST /api/inventory/items
+app.post('/api/inventory/items', requireAuth, (req, res) => {
+  try {
+    const d = req.body;
+    const r = db.prepare(`
+      INSERT INTO inventory_items
+        (part_id, asset_type, part_type, category, model, model_number, color, grade, status, description, supplier, cost_price, sell_price)
+      VALUES
+        (@part_id, @asset_type, @part_type, @category, @model, @model_number, @color, @grade, @status, @description, @supplier, @cost_price, @sell_price)
+    `).run({
+      part_id: d.part_id, asset_type: d.asset_type||null, part_type: d.part_type||null,
+      category: d.category||null, model: d.model||null, model_number: d.model_number||null,
+      color: d.color||null, grade: d.grade||null, status: d.status||'Active',
+      description: d.description||null, supplier: d.supplier||null,
+      cost_price: parseFloat(d.cost_price)||0, sell_price: parseFloat(d.sell_price)||0
+    });
+    // Auto-create stock row
+    db.prepare(`INSERT INTO inventory_stock (item_id, quantity, min_quantity, location) VALUES (?, 0, ?, ?)`)
+      .run(r.lastInsertRowid, parseInt(d.min_quantity)||1, d.location||null);
+    const item = db.prepare(`
+      SELECT i.*, s.quantity, s.min_quantity, s.location FROM inventory_items i
+      LEFT JOIN inventory_stock s ON s.item_id = i.id WHERE i.id = ?
+    `).get(r.lastInsertRowid);
+    res.status(201).json(item);
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Part ID already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/inventory/items/:id
+app.put('/api/inventory/items/:id', requireAuth, (req, res) => {
+  const d = req.body;
+  db.prepare(`
+    UPDATE inventory_items SET
+      part_id=@part_id, asset_type=@asset_type, part_type=@part_type, category=@category,
+      model=@model, model_number=@model_number, color=@color, grade=@grade, status=@status,
+      description=@description, supplier=@supplier, cost_price=@cost_price, sell_price=@sell_price
+    WHERE id=@id
+  `).run({
+    part_id: d.part_id, asset_type: d.asset_type||null, part_type: d.part_type||null,
+    category: d.category||null, model: d.model||null, model_number: d.model_number||null,
+    color: d.color||null, grade: d.grade||null, status: d.status||'Active',
+    description: d.description||null, supplier: d.supplier||null,
+    cost_price: parseFloat(d.cost_price)||0, sell_price: parseFloat(d.sell_price)||0,
+    id: req.params.id
+  });
+  // Update stock meta
+  db.prepare(`UPDATE inventory_stock SET min_quantity=?, location=?, last_updated=CURRENT_TIMESTAMP WHERE item_id=?`)
+    .run(parseInt(d.min_quantity)||1, d.location||null, req.params.id);
+  const item = db.prepare(`
+    SELECT i.*, s.quantity, s.min_quantity, s.location FROM inventory_items i
+    LEFT JOIN inventory_stock s ON s.item_id = i.id WHERE i.id = ?
+  `).get(req.params.id);
+  res.json(item);
+});
+
+// DELETE /api/inventory/items/:id
+app.delete('/api/inventory/items/:id', requireAuth, (req, res) => {
+  db.prepare('DELETE FROM inventory_items WHERE id=?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// POST /api/inventory/stock/:itemId/adjust
+app.post('/api/inventory/stock/:itemId/adjust', requireAuth, (req, res) => {
+  const { quantity, movement_type, notes } = req.body;
+  const qty = parseInt(quantity) || 0;
+  const itemId = req.params.itemId;
+  const stock = db.prepare('SELECT * FROM inventory_stock WHERE item_id=?').get(itemId);
+  if (!stock) return res.status(404).json({ error: 'Item not found' });
+
+  let newQty;
+  if (movement_type === 'IN')         newQty = stock.quantity + qty;
+  else if (movement_type === 'OUT')   newQty = stock.quantity - qty; // allow negative
+  else                                newQty = qty; // ADJUSTMENT = set to value
+
+  db.prepare('UPDATE inventory_stock SET quantity=?, last_updated=CURRENT_TIMESTAMP WHERE item_id=?')
+    .run(newQty, itemId);
+  db.prepare(`
+    INSERT INTO inventory_movements (item_id, movement_type, quantity, reference_type, notes, created_by)
+    VALUES (?, ?, ?, 'ADJUSTMENT', ?, ?)
+  `).run(itemId, movement_type, qty, notes||null, req.session.userId);
+
+  res.json({ ok: true, newQuantity: newQty });
+});
+
+// ── PURCHASE ORDERS ───────────────────────────────────────────────────────────
+
+// GET /api/inventory/po
+app.get('/api/inventory/po', requireAuth, (req, res) => {
+  const rows = db.prepare(`
+    SELECT p.*, u.full_name as created_by_name,
+           COUNT(pi.id) as item_count
+    FROM purchase_orders p
+    LEFT JOIN users u ON u.id = p.created_by
+    LEFT JOIN po_items pi ON pi.po_id = p.id
+    GROUP BY p.id ORDER BY p.created_at DESC
+  `).all();
+  res.json(rows);
+});
+
+// POST /api/inventory/po
+app.post('/api/inventory/po', requireAuth, (req, res) => {
+  try {
+    const { supplier, order_date, expected_date, notes, items } = req.body;
+    // Generate PO number
+    const last = db.prepare(`SELECT po_number FROM purchase_orders ORDER BY id DESC LIMIT 1`).get();
+    let nextNum = 1;
+    if (last) {
+      const m = last.po_number.match(/PO_(\d+)/);
+      if (m) nextNum = parseInt(m[1]) + 1;
+    }
+    const po_number = `PO_${String(nextNum).padStart(3,'0')}`;
+    const total_amount = (items||[]).reduce((s,i) => s + (parseFloat(i.unit_cost)||0) * (parseInt(i.quantity_ordered)||0), 0);
+
+    const r = db.prepare(`
+      INSERT INTO purchase_orders (po_number, supplier, order_date, expected_date, total_amount, notes, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(po_number, supplier||null, order_date||null, expected_date||null, total_amount, notes||null, req.session.userId);
+
+    const poId = r.lastInsertRowid;
+    const insertItem = db.prepare(`
+      INSERT INTO po_items (po_id, item_id, quantity_ordered, unit_cost, total_cost)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    for (const item of (items||[])) {
+      const qty = parseInt(item.quantity_ordered)||0;
+      const cost = parseFloat(item.unit_cost)||0;
+      insertItem.run(poId, item.item_id, qty, cost, qty*cost);
+    }
+    res.status(201).json(db.prepare('SELECT * FROM purchase_orders WHERE id=?').get(poId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/inventory/po/:id
+app.get('/api/inventory/po/:id', requireAuth, (req, res) => {
+  const po = db.prepare(`
+    SELECT p.*, u.full_name as created_by_name
+    FROM purchase_orders p LEFT JOIN users u ON u.id = p.created_by
+    WHERE p.id = ?
+  `).get(req.params.id);
+  if (!po) return res.status(404).json({ error: 'Not found' });
+  po.items = db.prepare(`
+    SELECT pi.*, i.part_id, i.model, i.part_type, i.asset_type, i.color, i.grade
+    FROM po_items pi JOIN inventory_items i ON i.id = pi.item_id
+    WHERE pi.po_id = ?
+  `).all(req.params.id);
+  res.json(po);
+});
+
+// PUT /api/inventory/po/:id
+app.put('/api/inventory/po/:id', requireAuth, (req, res) => {
+  const { supplier, order_date, expected_date, received_date, status, notes } = req.body;
+  db.prepare(`
+    UPDATE purchase_orders SET supplier=?, order_date=?, expected_date=?, received_date=?, status=?, notes=?
+    WHERE id=?
+  `).run(supplier||null, order_date||null, expected_date||null, received_date||null, status||'Draft', notes||null, req.params.id);
+  res.json(db.prepare('SELECT * FROM purchase_orders WHERE id=?').get(req.params.id));
+});
+
+// POST /api/inventory/po/:id/receive
+app.post('/api/inventory/po/:id/receive', requireAuth, (req, res) => {
+  const poId = req.params.id;
+  const po = db.prepare('SELECT * FROM purchase_orders WHERE id=?').get(poId);
+  if (!po) return res.status(404).json({ error: 'Not found' });
+
+  const poItems = db.prepare('SELECT * FROM po_items WHERE po_id=?').all(poId);
+  const receiveAll = db.transaction(() => {
+    for (const item of poItems) {
+      const qty = item.quantity_ordered - item.quantity_received;
+      if (qty <= 0) continue;
+      db.prepare('UPDATE po_items SET quantity_received=quantity_ordered WHERE id=?').run(item.id);
+      db.prepare('UPDATE inventory_stock SET quantity=quantity+?, last_updated=CURRENT_TIMESTAMP WHERE item_id=?')
+        .run(qty, item.item_id);
+      db.prepare(`
+        INSERT INTO inventory_movements (item_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
+        VALUES (?, 'IN', ?, 'PO', ?, ?, ?)
+      `).run(item.item_id, qty, po.po_number, `Received from PO ${po.po_number}`, req.session.userId);
+    }
+    db.prepare(`UPDATE purchase_orders SET status='Received', received_date=? WHERE id=?`)
+      .run(localDate(), poId);
+  });
+  receiveAll();
+  res.json({ ok: true });
+});
+
+// DELETE /api/inventory/po/:id
+app.delete('/api/inventory/po/:id', requireAuth, (req, res) => {
+  const po = db.prepare('SELECT status FROM purchase_orders WHERE id=?').get(req.params.id);
+  if (!po) return res.status(404).json({ error: 'Not found' });
+  if (po.status !== 'Draft') return res.status(400).json({ error: 'Only Draft POs can be deleted' });
+  db.prepare('DELETE FROM purchase_orders WHERE id=?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── PURCHASE REQUISITIONS ─────────────────────────────────────────────────────
+
+// GET /api/inventory/pr
+app.get('/api/inventory/pr', requireAuth, (req, res) => {
+  const rows = db.prepare(`
+    SELECT r.*, u.full_name as created_by_name,
+           COUNT(ri.id) as item_count
+    FROM purchase_requisitions r
+    LEFT JOIN users u ON u.id = r.created_by
+    LEFT JOIN pr_items ri ON ri.pr_id = r.id
+    GROUP BY r.id ORDER BY r.created_at DESC
+  `).all();
+  res.json(rows);
+});
+
+// POST /api/inventory/pr
+app.post('/api/inventory/pr', requireAuth, (req, res) => {
+  try {
+    const { priority, needed_by_date, notes, items } = req.body;
+    const last = db.prepare(`SELECT pr_number FROM purchase_requisitions ORDER BY id DESC LIMIT 1`).get();
+    let nextNum = 1;
+    if (last) {
+      const m = last.pr_number.match(/PR_(\d+)/);
+      if (m) nextNum = parseInt(m[1]) + 1;
+    }
+    const pr_number = `PR_${String(nextNum).padStart(3,'0')}`;
+
+    const r = db.prepare(`
+      INSERT INTO purchase_requisitions (pr_number, priority, needed_by_date, notes, created_by)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(pr_number, priority||'Normal', needed_by_date||null, notes||null, req.session.userId);
+
+    const prId = r.lastInsertRowid;
+    const insertItem = db.prepare(`INSERT INTO pr_items (pr_id, item_id, quantity, estimated_cost, notes) VALUES (?, ?, ?, ?, ?)`);
+    for (const item of (items||[])) {
+      insertItem.run(prId, item.item_id, parseInt(item.quantity)||1, parseFloat(item.estimated_cost)||0, item.notes||null);
+    }
+    res.status(201).json(db.prepare('SELECT * FROM purchase_requisitions WHERE id=?').get(prId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/inventory/pr/:id
+app.get('/api/inventory/pr/:id', requireAuth, (req, res) => {
+  const pr = db.prepare(`
+    SELECT r.*, u.full_name as created_by_name
+    FROM purchase_requisitions r LEFT JOIN users u ON u.id = r.created_by
+    WHERE r.id = ?
+  `).get(req.params.id);
+  if (!pr) return res.status(404).json({ error: 'Not found' });
+  pr.items = db.prepare(`
+    SELECT ri.*, i.part_id, i.model, i.part_type, i.asset_type, i.color, i.grade
+    FROM pr_items ri JOIN inventory_items i ON i.id = ri.item_id
+    WHERE ri.pr_id = ?
+  `).all(req.params.id);
+  res.json(pr);
+});
+
+// PUT /api/inventory/pr/:id/status
+app.put('/api/inventory/pr/:id/status', requireAuth, (req, res) => {
+  const { status } = req.body;
+  const pr = db.prepare('SELECT * FROM purchase_requisitions WHERE id=?').get(req.params.id);
+  if (!pr) return res.status(404).json({ error: 'Not found' });
+
+  if (status === 'Converted') {
+    // Convert to PO
+    const prItems = db.prepare('SELECT * FROM pr_items WHERE pr_id=?').all(req.params.id);
+    const last = db.prepare(`SELECT po_number FROM purchase_orders ORDER BY id DESC LIMIT 1`).get();
+    let nextNum = 1;
+    if (last) { const m = last.po_number.match(/PO_(\d+)/); if (m) nextNum = parseInt(m[1]) + 1; }
+    const po_number = `PO_${String(nextNum).padStart(3,'0')}`;
+
+    const poR = db.prepare(`
+      INSERT INTO purchase_orders (po_number, notes, created_by)
+      VALUES (?, ?, ?)
+    `).run(po_number, `Converted from ${pr.pr_number}`, req.session.userId);
+    const poId = poR.lastInsertRowid;
+
+    const insertPoItem = db.prepare(`INSERT INTO po_items (po_id, item_id, quantity_ordered, unit_cost, total_cost) VALUES (?, ?, ?, ?, ?)`);
+    for (const item of prItems) {
+      insertPoItem.run(poId, item.item_id, item.quantity, item.estimated_cost, item.quantity * item.estimated_cost);
+    }
+    db.prepare(`UPDATE purchase_orders SET total_amount=(SELECT SUM(total_cost) FROM po_items WHERE po_id=?) WHERE id=?`).run(poId, poId);
+  }
+
+  db.prepare('UPDATE purchase_requisitions SET status=? WHERE id=?').run(status, req.params.id);
+  res.json(db.prepare('SELECT * FROM purchase_requisitions WHERE id=?').get(req.params.id));
+});
+
+// DELETE /api/inventory/pr/:id
+app.delete('/api/inventory/pr/:id', requireAuth, (req, res) => {
+  const pr = db.prepare('SELECT status FROM purchase_requisitions WHERE id=?').get(req.params.id);
+  if (!pr) return res.status(404).json({ error: 'Not found' });
+  if (pr.status !== 'Pending') return res.status(400).json({ error: 'Only Pending PRs can be deleted' });
+  db.prepare('DELETE FROM purchase_requisitions WHERE id=?').run(req.params.id);
   res.json({ ok: true });
 });
 

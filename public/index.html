@@ -276,6 +276,39 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 .leads-kpi-card .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); }
 .leads-kpi-card .kpi-value { font-size:28px; font-weight:700; margin:4px 0 2px; }
 
+/* Inventory badges */
+.badge-active   { background: #d4edda; color: #155724; }
+.badge-inactive { background: #e2e3e5; color: #383d41; }
+.badge-draft    { background: #fff3cd; color: #856404; }
+.badge-sent     { background: #cce5ff; color: #004085; }
+.badge-received { background: #d4edda; color: #155724; }
+.badge-cancelled{ background: #f8d7da; color: #721c24; }
+.badge-pending  { background: #fff3cd; color: #856404; }
+.badge-approved { background: #d4edda; color: #155724; }
+.badge-rejected { background: #f8d7da; color: #721c24; }
+.badge-converted{ background: #cce5ff; color: #004085; }
+.badge-low-stock{ background: #f8d7da; color: #721c24; font-weight:700; }
+.badge-priority-low    { background: #e2e3e5; color: #383d41; }
+.badge-priority-normal { background: #cce5ff; color: #004085; }
+.badge-priority-high   { background: #fff3cd; color: #856404; }
+.badge-priority-urgent { background: #f8d7da; color: #721c24; }
+
+/* PO line item search */
+.item-search-wrap { position: relative; }
+.item-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; background: #fff;
+  border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px;
+  max-height: 200px; overflow-y: auto; z-index: 500; display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.item-dropdown.open { display: block; }
+.item-dropdown-row {
+  padding: 8px 12px; cursor: pointer; font-size: 13px;
+  border-bottom: 1px solid #f0f2f5;
+}
+.item-dropdown-row:hover { background: #f8f9fa; }
+.item-dropdown-row small { color: var(--text-muted); }
+
 /* Cash balance card */
 .cash-balance-card {
   background: linear-gradient(135deg, #1a2332 0%, #0055a5 100%);
@@ -325,6 +358,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
       <button class="nav-btn" data-tab="reports">📈 Reports</button>
       <button class="nav-btn" data-tab="customers">🧑‍💼 Customers</button>
       <button class="nav-btn" data-tab="leads">👥 Leads</button>
+      <button class="nav-btn" data-tab="inventory">📦 Inventory</button>
+      <button class="nav-btn" data-tab="purchase-orders">📋 Purchase Orders</button>
+      <button class="nav-btn" data-tab="purchase-requisitions">📝 Requisitions</button>
     </nav>
     <div class="header-user">
       <span id="header-username"></span>
@@ -417,10 +453,67 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
                   <option>Other</option>
                 </select>
               </div>
+              <!-- ── Inventory-linked fields ── -->
               <div class="form-group">
-                <label>Item / Model *</label>
-                <select id="f-item" required></select>
+                <label>Asset Type</label>
+                <select id="f-asset-type" onchange="onSaleAssetTypeChange()">
+                  <option value="">Select asset type</option>
+                </select>
               </div>
+              <div class="form-group">
+                <label>Part Type</label>
+                <select id="f-part-type" onchange="onSaleItemChange()">
+                  <option value="">Select part type</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Model</label>
+                <select id="f-model" onchange="onSaleItemChange()">
+                  <option value="">Select model</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Model Number</label>
+                <input type="text" id="f-model-number" placeholder="e.g. A2483">
+              </div>
+              <div class="form-group">
+                <label>Color</label>
+                <select id="f-color" onchange="onSaleItemChange()">
+                  <option value="">Any color</option>
+                  <option>Black</option><option>White</option><option>Silver</option>
+                  <option>Space Gray</option><option>Gold</option><option>Rose Gold</option>
+                  <option>Midnight</option><option>Starlight</option><option>Blue</option>
+                  <option>Sky Blue</option><option>Storm Blue</option><option>Ultramarine</option>
+                  <option>Purple</option><option>Lavender</option><option>Pink</option>
+                  <option>Red (PRODUCT Red)</option><option>Yellow</option><option>Orange</option>
+                  <option>Green</option><option>Teal</option><option>Coral</option>
+                  <option>Moonbeam</option><option>Space Black</option>
+                  <option>Natural Titanium</option><option>Blue Titanium</option>
+                  <option>White Titanium</option><option>Black Titanium</option>
+                  <option>Desert Titanium</option><option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Grade</label>
+                <select id="f-grade" onchange="onSaleItemChange()">
+                  <option value="">Any grade</option>
+                  <option value="New">New</option>
+                  <option value="Open Box">Open Box</option>
+                  <option value="New Third Party">New Third Party</option>
+                  <option value="New OEM">New OEM</option>
+                  <option value="A">A — Excellent</option>
+                  <option value="B+">B+ — Very Good</option>
+                  <option value="B">B — Good</option>
+                  <option value="C">C — Fair</option>
+                  <option value="D">D — Non Working</option>
+                </select>
+              </div>
+              <!-- Stock indicator -->
+              <div class="form-group span-2" id="sale-stock-indicator" style="display:none">
+                <div id="sale-stock-badge" style="padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px"></div>
+                <input type="hidden" id="f-linked-item-id">
+              </div>
+              <!-- ── end inventory fields ── -->
               <div class="form-group" id="screen-type-group" style="display:none">
                 <label>Screen Type</label>
                 <select id="f-screen-type">
@@ -886,6 +979,141 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
       </div>
     </section>
 
+    <!-- ══ INVENTORY ════════════════════════════════════════════════════════ -->
+    <section id="tab-inventory" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin-bottom:0">📦 Inventory Stock</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="exportInventoryCSV()">⬇ Export CSV</button>
+          <button class="btn btn-success" onclick="openAddItemModal()">＋ Add Item</button>
+        </div>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpi-grid" id="inv-kpi-grid" style="margin-bottom:18px">
+        <div class="kpi-card"><div class="kpi-label">Total Items</div><div class="kpi-value" id="inv-kpi-total">—</div><div class="kpi-sub">inventory items</div></div>
+        <div class="kpi-card" style="border-left-color:var(--red)"><div class="kpi-label">Low Stock</div><div class="kpi-value" id="inv-kpi-low" style="color:var(--red)">—</div><div class="kpi-sub">below minimum</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Total Parts Value</div><div class="kpi-value" id="inv-kpi-value">—</div><div class="kpi-sub">at cost price</div></div>
+        <div class="kpi-card" style="border-left-color:var(--purple)"><div class="kpi-label">Asset Types</div><div class="kpi-value" id="inv-kpi-types">—</div><div class="kpi-sub">categories</div></div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card mb-4">
+        <div class="card-body" style="padding:14px 18px">
+          <div class="filter-bar">
+            <div class="form-group">
+              <label>Asset Type</label>
+              <select id="inv-filter-asset">
+                <option value="">All Types</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Part Type</label>
+              <select id="inv-filter-part">
+                <option value="">All Parts</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="inv-filter-status">
+                <option value="">All Status</option>
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Search</label>
+              <input type="text" id="inv-search" placeholder="Part ID, model, supplier…" style="min-width:200px">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadInventory()" style="align-self:flex-end">Filter</button>
+            <button class="btn btn-outline btn-sm" onclick="clearInvFilters()" style="align-self:flex-end">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Part ID</th><th>Asset Type</th><th>Part Type</th><th>Model</th><th>Color</th>
+                <th>Grade</th>
+                <th style="background:#eff6ff;color:#1d4ed8">Total QoH</th>
+                <th style="background:#f0fdf4;color:#166534">Available Qty</th>
+                <th style="background:#fef3c7;color:#92400e">Qty Used</th>
+                <th>Min</th><th>Location</th>
+                <th>Cost</th><th>Sell Price</th><th>Status</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="inv-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PURCHASE ORDERS ══════════════════════════════════════════════════ -->
+    <section id="tab-purchase-orders" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin-bottom:0">📋 Purchase Orders</div>
+        <button class="btn btn-success" onclick="openNewPOModal()">＋ New Purchase Order</button>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpi-grid" style="margin-bottom:18px">
+        <div class="kpi-card"><div class="kpi-label">Total POs</div><div class="kpi-value" id="po-kpi-total">—</div></div>
+        <div class="kpi-card" style="border-left-color:var(--yellow)"><div class="kpi-label">Draft</div><div class="kpi-value" id="po-kpi-draft">—</div></div>
+        <div class="kpi-card" style="border-left-color:var(--orange)"><div class="kpi-label">Sent</div><div class="kpi-value" id="po-kpi-sent">—</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Received</div><div class="kpi-value" id="po-kpi-received">—</div></div>
+      </div>
+
+      <!-- PO list -->
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>PO #</th><th>Supplier</th><th>Order Date</th><th>Expected</th>
+                <th>Items</th><th class="text-right">Total</th><th>Status</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="po-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ PURCHASE REQUISITIONS ════════════════════════════════════════════ -->
+    <section id="tab-purchase-requisitions" class="tab-content">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin-bottom:0">📝 Purchase Requisitions</div>
+        <button class="btn btn-success" onclick="openNewPRModal()">＋ New Requisition</button>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpi-grid" style="margin-bottom:18px">
+        <div class="kpi-card"><div class="kpi-label">Total PRs</div><div class="kpi-value" id="pr-kpi-total">—</div></div>
+        <div class="kpi-card" style="border-left-color:var(--yellow)"><div class="kpi-label">Pending</div><div class="kpi-value" id="pr-kpi-pending">—</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Approved</div><div class="kpi-value" id="pr-kpi-approved">—</div></div>
+        <div class="kpi-card" style="border-left-color:var(--purple)"><div class="kpi-label">Converted</div><div class="kpi-value" id="pr-kpi-converted">—</div></div>
+      </div>
+
+      <!-- PR list -->
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>PR #</th><th>Priority</th><th>Items</th><th>Needed By</th>
+                <th>Status</th><th>Created By</th><th>Date</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="pr-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -1202,6 +1430,285 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   </div>
 </div>
 
+<!-- ══ ADD/EDIT ITEM MODAL ════════════════════════════════════════════════════ -->
+<div id="item-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-header">
+      <h3 id="item-modal-title">Add Inventory Item</h3>
+      <button class="close-btn" onclick="closeItemModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="item-form">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group">
+            <label>Part ID *</label>
+            <input type="text" id="it-part-id" placeholder="e.g. BTRY-IP14-OEM" required>
+          </div>
+          <div class="form-group">
+            <label>Asset Type</label>
+            <select id="it-asset-type">
+              <option value="">Select asset type</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Part Type</label>
+            <select id="it-part-type">
+              <option value="">Select part type</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Model</label>
+            <select id="it-model">
+              <option value="">Select model</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Model Number</label>
+            <input type="text" id="it-model-number" placeholder="e.g. A2483">
+          </div>
+          <div class="form-group">
+            <label>Color</label>
+            <select id="it-color">
+              <option value="">Select color</option>
+              <option>Black</option>
+              <option>White</option>
+              <option>Silver</option>
+              <option>Space Gray</option>
+              <option>Gold</option>
+              <option>Rose Gold</option>
+              <option>Midnight</option>
+              <option>Starlight</option>
+              <option>Blue</option>
+              <option>Sky Blue</option>
+              <option>Storm Blue</option>
+              <option>Ultramarine</option>
+              <option>Purple</option>
+              <option>Lavender</option>
+              <option>Pink</option>
+              <option>Red (PRODUCT Red)</option>
+              <option>Yellow</option>
+              <option>Orange</option>
+              <option>Green</option>
+              <option>Teal</option>
+              <option>Coral</option>
+              <option>Moonbeam</option>
+              <option>Space Black</option>
+              <option>Natural Titanium</option>
+              <option>Blue Titanium</option>
+              <option>White Titanium</option>
+              <option>Black Titanium</option>
+              <option>Desert Titanium</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Grade</label>
+            <select id="it-grade">
+              <option value="">Select grade</option>
+              <option value="New">New</option>
+              <option value="Open Box">Open Box</option>
+              <option value="New Third Party">New Third Party</option>
+              <option value="New OEM">New OEM</option>
+              <option value="A">A — Excellent</option>
+              <option value="B+">B+ — Very Good</option>
+              <option value="B">B — Good</option>
+              <option value="C">C — Fair</option>
+              <option value="D">D — Non Working</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="it-status">
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Cost Price ($)</label>
+            <input type="number" id="it-cost-price" placeholder="0.00" step="0.01" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>Sell Price ($)</label>
+            <input type="number" id="it-sell-price" placeholder="0.00" step="0.01" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>Min Stock Qty</label>
+            <input type="number" id="it-min-qty" placeholder="1" min="0" value="1">
+          </div>
+          <div class="form-group">
+            <label>Storage Location</label>
+            <input type="text" id="it-location" placeholder="e.g. Shelf A-3">
+          </div>
+          <div class="form-group">
+            <label>Supplier</label>
+            <input type="text" id="it-supplier" placeholder="e.g. iFixit, 1A Auto">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <input type="text" id="it-category" placeholder="Optional category tag">
+          </div>
+          <div class="form-group" style="grid-column:span 2">
+            <label>Description</label>
+            <textarea id="it-description" rows="2" placeholder="Optional notes about this part…"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeItemModal()">Cancel</button>
+      <button class="btn btn-success" onclick="saveItem()">💾 Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADJUST STOCK MODAL ════════════════════════════════════════════════════ -->
+<div id="adjust-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:460px">
+    <div class="modal-header">
+      <h3>Adjust Stock</h3>
+      <button class="close-btn" onclick="closeAdjustModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="adjust-item-info" style="background:#f8f9fa;border-radius:6px;padding:12px;margin-bottom:16px;font-size:13px"></div>
+      <div class="form-group">
+        <label>Movement Type</label>
+        <select id="adj-type">
+          <option value="IN">Add Stock (IN)</option>
+          <option value="OUT">Remove Stock (OUT)</option>
+          <option value="ADJUSTMENT">Set Exact Quantity (ADJUSTMENT)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" id="adj-qty" placeholder="0" min="0" value="">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="adj-notes" rows="2" placeholder="Reason for adjustment…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeAdjustModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdjustment()">Update Stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEW PURCHASE ORDER MODAL ══════════════════════════════════════════════ -->
+<div id="po-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:860px">
+    <div class="modal-header">
+      <h3 id="po-modal-title">New Purchase Order</h3>
+      <button class="close-btn" onclick="closePOModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div class="form-group">
+          <label>Supplier *</label>
+          <input type="text" id="po-supplier" placeholder="Supplier name" required>
+        </div>
+        <div class="form-group">
+          <label>Order Date</label>
+          <input type="date" id="po-order-date">
+        </div>
+        <div class="form-group">
+          <label>Expected Delivery Date</label>
+          <input type="date" id="po-expected-date">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="po-status">
+            <option value="Draft">Draft</option>
+            <option value="Sent">Sent</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>Notes</label>
+          <textarea id="po-notes" rows="2" placeholder="Order notes…"></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="section-title" style="margin-bottom:0">Line Items</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="addPOLineItem()">+ Add Item</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Qty</th><th>Unit Cost</th><th class="text-right">Total</th><th></th></tr></thead>
+          <tbody id="po-line-items"></tbody>
+          <tfoot>
+            <tr class="tfoot"><td colspan="3">Order Total</td><td class="text-right" id="po-line-total">$0.00</td><td></td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePOModal()">Cancel</button>
+      <button class="btn btn-success" onclick="savePO()">💾 Save Purchase Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PO DETAIL MODAL ═══════════════════════════════════════════════════════ -->
+<div id="po-detail-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-header">
+      <h3 id="po-detail-title">Purchase Order</h3>
+      <button class="close-btn" onclick="closePODetailModal()">✕</button>
+    </div>
+    <div class="modal-body" id="po-detail-body"></div>
+    <div class="modal-footer" id="po-detail-footer">
+      <button class="btn btn-outline" onclick="closePODetailModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEW REQUISITION MODAL ════════════════════════════════════════════════ -->
+<div id="pr-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-header">
+      <h3>New Purchase Requisition</h3>
+      <button class="close-btn" onclick="closePRModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="pr-priority">
+            <option value="Low">Low</option>
+            <option value="Normal" selected>Normal</option>
+            <option value="High">High</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Needed By Date</label>
+          <input type="date" id="pr-needed-by">
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>Notes</label>
+          <textarea id="pr-notes" rows="2" placeholder="Reason for requisition…"></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="section-title" style="margin-bottom:0">Requested Items</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="addPRLineItem()">+ Add Item</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Qty Needed</th><th>Est. Cost</th><th>Notes</th><th></th></tr></thead>
+          <tbody id="pr-line-items"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePRModal()">Cancel</button>
+      <button class="btn btn-success" onclick="savePR()">💾 Submit Requisition</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1260,8 +1767,7 @@ function buildModelOptionsHTML() {
 
 function populateModelSelects() {
   const html = buildModelOptionsHTML();
-  $('f-item').innerHTML = html;
-  $('e-item').innerHTML = html;
+  $('e-item').innerHTML = html; // edit modal only — f-item replaced by inventory fields
 }
 
 // ── REPAIR TYPE DROPDOWN ──────────────────────────────────────────────────────
@@ -1448,6 +1954,9 @@ function showTab(name) {
   else if (name === 'new-sale') initNewSale();
   else if (name === 'customers') loadCustomers();
   else if (name === 'leads') loadLeads();
+  else if (name === 'inventory') loadInventory();
+  else if (name === 'purchase-orders') loadPurchaseOrders();
+  else if (name === 'purchase-requisitions') loadPurchaseRequisitions();
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -1563,6 +2072,7 @@ async function initNewSale() {
   $('f-date').value = today();
   const nid = await api('GET','/api/transactions/next-id');
   if (nid) $('f-txn-id').value = nid.nextId;
+  await initSaleInventoryDropdowns();
   $('f-category').focus();
 }
 
@@ -1570,10 +2080,10 @@ $('f-category').onchange = function() {
   const v = this.value;
   const showScreen = ['Repair','Pre Order'].includes(v);
   const showRepair = v === 'Repair';
-  $('screen-type-group').style.display  = showScreen ? '' : 'none';
-  $('repair-type-group').style.display  = showRepair ? '' : 'none';
-  if (!showScreen) $('f-screen-type').value  = '';
-  if (!showRepair) $('f-repair-type').value  = '';
+  $('screen-type-group').style.display = showScreen ? '' : 'none';
+  $('repair-type-group').style.display = showRepair ? '' : 'none';
+  if (!showScreen) $('f-screen-type').value = '';
+  if (!showRepair) $('f-repair-type').value = '';
 };
 
 function onPaymentChange() {
@@ -1605,6 +2115,15 @@ function resetSaleForm() {
   $('calc-line').textContent = '$0.00';
   $('calc-tax').textContent  = '$0.00';
   $('calc-net').textContent  = '$0.00';
+  // Clear inventory link fields
+  $('f-asset-type').value = '';
+  $('f-part-type').value  = '';
+  $('f-model').innerHTML  = '<option value="">Select model</option>';
+  $('f-color').value      = '';
+  $('f-grade').value      = '';
+  $('f-model-number').value = '';
+  $('f-linked-item-id').value = '';
+  $('sale-stock-indicator').style.display = 'none';
 }
 
 $('sale-form').onsubmit = async e => {
@@ -1620,11 +2139,16 @@ $('sale-form').onsubmit = async e => {
   const line = Math.max(0, qty*price - disc);
   const tax = line * rate/100;
 
+  const linkedItemId = parseInt($('f-linked-item-id').value) || null;
+  const modelVal = $('f-model').value.trim();
+  const assetVal = $('f-asset-type').value.trim();
+  const itemLabel = modelVal ? (assetVal ? `${assetVal} — ${modelVal}` : modelVal) : '';
+
   const body = {
     date: $('f-date').value,
     transaction_id: $('f-txn-id').value.trim() || null,
     category: $('f-category').value,
-    item_or_model: $('f-item').value.trim(),
+    item_or_model: itemLabel,
     screen_type: $('f-screen-type').value || null,
     repair_type: $('f-repair-type').value || null,
     imei_serial: $('f-imei').value.trim() || null,
@@ -1636,7 +2160,8 @@ $('sale-form').onsubmit = async e => {
     customer_email: $('f-cust-email').value.trim() || null,
     repair_time: $('f-repair-time').value.trim() || null,
     issue: $('f-issue').value.trim() || null,
-    notes: $('f-notes').value.trim() || null
+    notes: $('f-notes').value.trim() || null,
+    inventory_item_id: linkedItemId
   };
 
   const res = await api('POST','/api/transactions', body);
@@ -2587,6 +3112,850 @@ function exportLeadsExcel() {
 
 $('lead-modal').addEventListener('click', e => { if (e.target === $('lead-modal')) closeLeadModal(); });
 $('lead-search').addEventListener('keydown', e => { if (e.key === 'Enter') loadLeads(); });
+
+// ══ INVENTORY ════════════════════════════════════════════════════════════════
+let invMeta = null;
+let editingItemId = null;
+let adjustingItemId = null;
+let allInventoryItems = []; // cached for item picker dropdowns
+
+async function loadInvMeta() {
+  if (invMeta) return invMeta;
+  invMeta = await api('GET', '/api/inventory/items/meta');
+  if (!invMeta) return null;
+
+  // Populate filter dropdowns
+  const assetSel = $('inv-filter-asset');
+  invMeta.assetTypes.forEach(t => {
+    const o = document.createElement('option'); o.value = t; o.textContent = t;
+    assetSel.appendChild(o);
+  });
+  const partSel = $('inv-filter-part');
+  invMeta.partTypes.forEach(pt => {
+    const o = document.createElement('option'); o.value = pt.code; o.textContent = pt.label;
+    partSel.appendChild(o);
+  });
+
+  // Populate item modal dropdowns
+  const assetModal = $('it-asset-type');
+  invMeta.assetTypes.forEach(t => {
+    const o = document.createElement('option'); o.value = t; o.textContent = t;
+    assetModal.appendChild(o);
+  });
+  const partModal = $('it-part-type');
+  invMeta.partTypes.forEach(pt => {
+    const o = document.createElement('option'); o.value = pt.code; o.textContent = `${pt.code} — ${pt.label}`;
+    partModal.appendChild(o);
+  });
+
+  $('it-asset-type').addEventListener('change', function() {
+    populateItemModalModels(this.value);
+  });
+
+  return invMeta;
+}
+
+function populateItemModalModels(assetType) {
+  const sel = $('it-model');
+  sel.innerHTML = '<option value="">Select model</option>';
+  if (!invMeta || !assetType) return;
+  const models = invMeta.deviceModels[assetType] || [];
+  models.forEach(m => {
+    const o = document.createElement('option'); o.value = m; o.textContent = m;
+    sel.appendChild(o);
+  });
+}
+
+async function loadInventory() {
+  await loadInvMeta();
+  const p = new URLSearchParams();
+  const asset = $('inv-filter-asset').value;
+  const part  = $('inv-filter-part').value;
+  const status = $('inv-filter-status').value;
+  const search = $('inv-search').value.trim();
+  if (asset)  p.set('asset_type', asset);
+  if (part)   p.set('part_type', part);
+  if (status) p.set('status', status);
+  if (search) p.set('search', search);
+
+  const rows = await api('GET', `/api/inventory/items?${p}`);
+  if (!rows) return;
+
+  // Cache for item pickers
+  allInventoryItems = await api('GET', '/api/inventory/items') || [];
+
+  // KPIs
+  $('inv-kpi-total').textContent = rows.length;
+  const low = rows.filter(r => (r.quantity??0) < (r.min_quantity||1)).length;
+  $('inv-kpi-low').textContent = low;
+  const totalValue = rows.reduce((s,r) => s + (Math.max(0, r.quantity||0) * (r.cost_price||0)), 0);
+  $('inv-kpi-value').textContent = fmt(totalValue);
+  const types = new Set(rows.map(r => r.asset_type).filter(Boolean));
+  $('inv-kpi-types').textContent = types.size;
+
+  const tbody = $('inv-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="15" class="empty-state">No inventory items. Click "+ Add Item" to get started.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const availQty  = r.quantity  ?? 0;
+    const qtyUsed   = r.qty_used  ?? 0;
+    const totalQoH  = r.total_qoh ?? (availQty + qtyUsed);
+    const isNeg     = availQty < 0;
+    const isLow     = !isNeg && availQty < (r.min_quantity||1);
+
+    // Available Qty cell — colour-coded
+    const availCell = isNeg
+      ? `<span class="badge" style="background:#fee2e2;color:#991b1b;border:1px solid #ef4444;font-size:12px">${availQty} ⚠</span>`
+      : isLow
+        ? `<span class="badge badge-low-stock" style="font-size:12px">${availQty}</span>`
+        : `<strong style="color:#166534">${availQty}</strong>`;
+
+    // Total QoH cell
+    const totalCell = `<strong style="color:#1d4ed8">${totalQoH}</strong>`;
+
+    // Qty Used cell
+    const usedCell  = qtyUsed > 0
+      ? `<span style="color:#92400e;font-weight:600">${qtyUsed}</span>`
+      : `<span style="color:var(--text-muted)">0</span>`;
+
+    const partLabel = invMeta?.partTypes.find(pt => pt.code === r.part_type)?.label || r.part_type || '—';
+    return `<tr>
+      <td><code style="font-size:11px">${r.part_id}</code></td>
+      <td style="font-size:12px">${r.asset_type||'—'}</td>
+      <td style="font-size:12px">${partLabel}</td>
+      <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.model||'—'}</td>
+      <td style="font-size:12px">${r.color||'—'}</td>
+      <td><span class="badge badge-accessories" style="font-size:10px">${r.grade||'—'}</span></td>
+      <td style="text-align:center;background:#eff6ff">${totalCell}</td>
+      <td style="text-align:center;background:#f0fdf4">${availCell}</td>
+      <td style="text-align:center;background:#fef3c7">${usedCell}</td>
+      <td style="color:var(--text-muted);text-align:center">${r.min_quantity||1}</td>
+      <td style="font-size:12px">${r.location||'—'}</td>
+      <td style="font-size:12px">${fmt(r.cost_price)}</td>
+      <td style="font-size:12px">${fmt(r.sell_price)}</td>
+      <td><span class="badge badge-${(r.status||'active').toLowerCase()}">${r.status||'Active'}</span></td>
+      <td><div class="actions">
+        <button class="btn btn-outline btn-sm" onclick="openAddItemModal(${r.id})">✏</button>
+        <button class="btn btn-primary btn-sm" onclick="openAdjustStockModal(${r.id},'${r.part_id}',${availQty})">±</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteItem(${r.id})">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function clearInvFilters() {
+  $('inv-filter-asset').value = '';
+  $('inv-filter-part').value = '';
+  $('inv-filter-status').value = '';
+  $('inv-search').value = '';
+  loadInventory();
+}
+
+async function openAddItemModal(id) {
+  await loadInvMeta();
+  editingItemId = id || null;
+  $('item-modal-title').textContent = id ? 'Edit Inventory Item' : 'Add Inventory Item';
+  $('item-form').reset();
+  $('it-asset-type').value = '';
+  $('it-model').innerHTML = '<option value="">Select model</option>';
+
+  if (id) {
+    const r = await api('GET', `/api/inventory/items?`);
+    // Fetch fresh from items list since no single-item endpoint
+    const all = await api('GET', '/api/inventory/items');
+    const item = (all||[]).find(i => i.id === id);
+    if (!item) return;
+    $('it-part-id').value      = item.part_id || '';
+    $('it-asset-type').value   = item.asset_type || '';
+    populateItemModalModels(item.asset_type || '');
+    $('it-model').value        = item.model || '';
+    $('it-part-type').value    = item.part_type || '';
+    $('it-model-number').value = item.model_number || '';
+    $('it-color').value        = item.color || '';
+    $('it-grade').value        = item.grade || '';
+    $('it-status').value       = item.status || 'Active';
+    $('it-cost-price').value   = item.cost_price || 0;
+    $('it-sell-price').value   = item.sell_price || 0;
+    $('it-min-qty').value      = item.min_quantity || 1;
+    $('it-location').value     = item.location || '';
+    $('it-supplier').value     = item.supplier || '';
+    $('it-category').value     = item.category || '';
+    $('it-description').value  = item.description || '';
+  }
+  $('item-modal').classList.remove('hidden');
+  setTimeout(() => $('it-part-id').focus(), 50);
+}
+
+function closeItemModal() {
+  $('item-modal').classList.add('hidden');
+  editingItemId = null;
+}
+
+async function saveItem() {
+  if (!$('item-form').reportValidity()) return;
+  if (!$('it-part-id').value.trim()) { showToast('Part ID is required', 'error'); return; }
+
+  const body = {
+    part_id:      $('it-part-id').value.trim(),
+    asset_type:   $('it-asset-type').value || null,
+    part_type:    $('it-part-type').value || null,
+    category:     $('it-category').value.trim() || null,
+    model:        $('it-model').value || null,
+    model_number: $('it-model-number').value.trim() || null,
+    color:        $('it-color').value.trim() || null,
+    grade:        $('it-grade').value || null,
+    status:       $('it-status').value || 'Active',
+    description:  $('it-description').value.trim() || null,
+    supplier:     $('it-supplier').value.trim() || null,
+    cost_price:   parseFloat($('it-cost-price').value) || 0,
+    sell_price:   parseFloat($('it-sell-price').value) || 0,
+    min_quantity: parseInt($('it-min-qty').value) || 1,
+    location:     $('it-location').value.trim() || null,
+  };
+
+  const url    = editingItemId ? `/api/inventory/items/${editingItemId}` : '/api/inventory/items';
+  const method = editingItemId ? 'PUT' : 'POST';
+  const res    = await api(method, url, body);
+
+  if (res?.id) {
+    showToast(editingItemId ? 'Item updated' : `Item added — ${body.part_id}`);
+    closeItemModal();
+    loadInventory();
+  } else {
+    showToast(res?.error || 'Error saving item', 'error');
+  }
+}
+
+async function deleteItem(id) {
+  if (!confirm('Delete this inventory item? Stock and movement records will also be removed.')) return;
+  const r = await api('DELETE', `/api/inventory/items/${id}`);
+  if (r?.ok) { showToast('Item deleted'); loadInventory(); }
+}
+
+// ── Adjust Stock ──────────────────────────────────────────────────────────────
+function openAdjustStockModal(itemId, partId, currentQty) {
+  adjustingItemId = itemId;
+  $('adjust-item-info').innerHTML = `<strong>${partId}</strong> — Current Qty: <strong>${currentQty}</strong>`;
+  $('adj-type').value = 'IN';
+  $('adj-qty').value = '';
+  $('adj-notes').value = '';
+  $('adjust-modal').classList.remove('hidden');
+  setTimeout(() => $('adj-qty').focus(), 50);
+}
+
+function closeAdjustModal() {
+  $('adjust-modal').classList.add('hidden');
+  adjustingItemId = null;
+}
+
+async function saveAdjustment() {
+  const qty = parseInt($('adj-qty').value);
+  if (!qty || qty < 0) { showToast('Enter a valid quantity', 'error'); return; }
+  const body = {
+    quantity: qty,
+    movement_type: $('adj-type').value,
+    notes: $('adj-notes').value.trim() || null
+  };
+  const res = await api('POST', `/api/inventory/stock/${adjustingItemId}/adjust`, body);
+  if (res?.ok) {
+    showToast(`Stock updated — new quantity: ${res.newQuantity}`);
+    closeAdjustModal();
+    loadInventory();
+  } else {
+    showToast(res?.error || 'Error updating stock', 'error');
+  }
+}
+
+function exportInventoryCSV() {
+  const p = new URLSearchParams();
+  const asset = $('inv-filter-asset').value;
+  const part  = $('inv-filter-part').value;
+  const status = $('inv-filter-status').value;
+  if (asset)  p.set('asset_type', asset);
+  if (part)   p.set('part_type', part);
+  if (status) p.set('status', status);
+
+  api('GET', `/api/inventory/items?${p}`).then(rows => {
+    if (!rows?.length) { showToast('No data to export', 'info'); return; }
+    const cols = ['part_id','asset_type','part_type','model','model_number','color','grade','status',
+                  'quantity','min_quantity','location','cost_price','sell_price','supplier','description'];
+    const csv = [cols.join(','), ...rows.map(r => cols.map(c => {
+      const v = r[c] ?? '';
+      return typeof v === 'string' && (v.includes(',') || v.includes('"'))
+        ? `"${v.replace(/"/g,'""')}"` : v;
+    }).join(','))].join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = `cpr-inventory-${today()}.csv`;
+    a.click();
+    showToast(`Exported ${rows.length} items`, 'info');
+  });
+}
+
+// ══ SALE FORM — INVENTORY LINK ════════════════════════════════════════════════
+let saleInvLookupTimer = null;
+
+async function initSaleInventoryDropdowns() {
+  await loadInvMeta();
+  if (!invMeta) return;
+
+  // Populate Asset Type
+  const atSel = $('f-asset-type');
+  atSel.innerHTML = '<option value="">Select asset type</option>';
+  invMeta.assetTypes.forEach(t => {
+    const o = document.createElement('option'); o.value = t; o.textContent = t;
+    atSel.appendChild(o);
+  });
+
+  // Populate Part Type
+  const ptSel = $('f-part-type');
+  ptSel.innerHTML = '<option value="">Select part type</option>';
+  invMeta.partTypes.forEach(pt => {
+    const o = document.createElement('option'); o.value = pt.code; o.textContent = `${pt.code} — ${pt.label}`;
+    ptSel.appendChild(o);
+  });
+}
+
+function onSaleAssetTypeChange() {
+  const assetType = $('f-asset-type').value;
+  const modelSel = $('f-model');
+  modelSel.innerHTML = '<option value="">Select model</option>';
+  if (invMeta && assetType) {
+    (invMeta.deviceModels[assetType] || []).forEach(m => {
+      const o = document.createElement('option'); o.value = m; o.textContent = m;
+      modelSel.appendChild(o);
+    });
+  }
+  $('f-linked-item-id').value = '';
+  $('sale-stock-indicator').style.display = 'none';
+  onSaleItemChange();
+}
+
+function onSaleItemChange() {
+  clearTimeout(saleInvLookupTimer);
+  saleInvLookupTimer = setTimeout(lookupSaleInventory, 300);
+}
+
+async function lookupSaleInventory() {
+  const model     = $('f-model').value;
+  const assetType = $('f-asset-type').value;
+  const color     = $('f-color').value;
+  const grade     = $('f-grade').value;
+  const partType  = $('f-part-type').value;
+
+  const badge   = $('sale-stock-badge');
+  const indic   = $('sale-stock-indicator');
+  const hiddenId = $('f-linked-item-id');
+
+  if (!model) {
+    indic.style.display = 'none';
+    hiddenId.value = '';
+    return;
+  }
+
+  const p = new URLSearchParams({ model });
+  if (assetType) p.set('asset_type', assetType);
+  if (color)     p.set('color', color);
+  if (grade)     p.set('grade', grade);
+  if (partType)  p.set('part_type', partType);
+
+  const item = await api('GET', `/api/inventory/lookup?${p}`);
+  indic.style.display = '';
+
+  if (!item) {
+    badge.style.background = '#fef3c7';
+    badge.style.color = '#92400e';
+    badge.style.border = '1px solid #f59e0b';
+    badge.innerHTML = '⚠️ No inventory item found — sale will NOT reduce stock';
+    hiddenId.value = '';
+    return;
+  }
+
+  hiddenId.value = item.id;
+  const qty = item.quantity ?? 0;
+  const isNeg = qty < 0;
+  const isLow = qty <= (item.min_quantity ?? 1) && qty >= 0;
+
+  if (isNeg) {
+    badge.style.background = '#fee2e2';
+    badge.style.color = '#991b1b';
+    badge.style.border = '1px solid #ef4444';
+    badge.innerHTML = `🔴 <strong>${item.part_id}</strong> &nbsp;|&nbsp; ${item.color||''} ${item.grade||''} &nbsp;|&nbsp; Stock: <strong>${qty}</strong> (NEGATIVE — over-sold)`;
+  } else if (isLow) {
+    badge.style.background = '#fff7ed';
+    badge.style.color = '#92400e';
+    badge.style.border = '1px solid #f59e0b';
+    badge.innerHTML = `🟡 <strong>${item.part_id}</strong> &nbsp;|&nbsp; ${item.color||''} ${item.grade||''} &nbsp;|&nbsp; Stock: <strong>${qty}</strong> (Low)`;
+  } else {
+    badge.style.background = '#dcfce7';
+    badge.style.color = '#166534';
+    badge.style.border = '1px solid #22c55e';
+    badge.innerHTML = `🟢 <strong>${item.part_id}</strong> &nbsp;|&nbsp; ${item.color||''} ${item.grade||''} &nbsp;|&nbsp; In Stock: <strong>${qty}</strong>`;
+  }
+}
+
+// ══ PURCHASE ORDERS ══════════════════════════════════════════════════════════
+let poLineCounter = 0;
+
+function poBadge(s) {
+  const map = { Draft:'draft', Sent:'sent', Received:'received', Cancelled:'cancelled' };
+  return `<span class="badge badge-${map[s]||'other'}">${s}</span>`;
+}
+
+async function loadPurchaseOrders() {
+  const rows = await api('GET', '/api/inventory/po');
+  if (!rows) return;
+
+  $('po-kpi-total').textContent    = rows.length;
+  $('po-kpi-draft').textContent    = rows.filter(r => r.status==='Draft').length;
+  $('po-kpi-sent').textContent     = rows.filter(r => r.status==='Sent').length;
+  $('po-kpi-received').textContent = rows.filter(r => r.status==='Received').length;
+
+  const tbody = $('po-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No purchase orders yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td><code style="font-size:12px">${r.po_number}</code></td>
+    <td>${r.supplier||'—'}</td>
+    <td style="font-size:12px">${r.order_date ? fmtDate(r.order_date) : '—'}</td>
+    <td style="font-size:12px">${r.expected_date ? fmtDate(r.expected_date) : '—'}</td>
+    <td style="text-align:center">${r.item_count||0}</td>
+    <td class="text-right"><strong>${fmt(r.total_amount)}</strong></td>
+    <td>${poBadge(r.status)}</td>
+    <td><div class="actions">
+      <button class="btn btn-outline btn-sm" onclick="openPODetail(${r.id})">View</button>
+      ${r.status==='Sent'?`<button class="btn btn-success btn-sm" onclick="receivePO(${r.id})">Receive</button>`:''}
+      ${r.status==='Draft'?`<button class="btn btn-danger btn-sm" onclick="deletePO(${r.id})">✕</button>`:''}
+    </div></td>
+  </tr>`).join('');
+}
+
+function openNewPOModal() {
+  $('po-supplier').value = '';
+  $('po-order-date').value = today();
+  $('po-expected-date').value = '';
+  $('po-status').value = 'Draft';
+  $('po-notes').value = '';
+  $('po-line-items').innerHTML = '';
+  $('po-line-total').textContent = '$0.00';
+  poLineCounter = 0;
+  $('po-modal').classList.remove('hidden');
+  addPOLineItem();
+}
+
+function closePOModal() { $('po-modal').classList.add('hidden'); }
+
+async function addPOLineItem() {
+  if (!allInventoryItems.length) {
+    allInventoryItems = await api('GET', '/api/inventory/items') || [];
+  }
+  poLineCounter++;
+  const idx = poLineCounter;
+  const activeItems = allInventoryItems.filter(i => i.status === 'Active');
+  const tbody = $('po-line-items');
+  const tr = document.createElement('tr');
+  tr.id = `po-line-${idx}`;
+  tr.dataset.itemId = '';
+  tr.innerHTML = `
+    <td>
+      <div class="item-search-wrap">
+        <input type="text" placeholder="Search item…" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px"
+          oninput="filterPOItem(this,${idx})" onfocus="showPODropdown(${idx})">
+        <div class="item-dropdown" id="po-dd-${idx}">
+          ${activeItems.map(i =>
+            `<div class="item-dropdown-row" onclick="selectPOItem(${idx},${i.id},'${(i.part_id+'').replace(/'/g,"\\'")} — ${(i.model+'').replace(/'/g,"\\'")}',${i.cost_price||0})">
+              <strong>${i.part_id}</strong> — ${i.model||''}
+              <small style="float:right">${fmt(i.cost_price)} cost</small>
+            </div>`).join('')}
+        </div>
+      </div>
+    </td>
+    <td><input type="number" id="po-qty-${idx}" value="1" min="1" style="width:60px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px" oninput="recalcPOTotal()"></td>
+    <td><input type="number" id="po-cost-${idx}" value="0" min="0" step="0.01" style="width:80px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px" oninput="recalcPOTotal()"></td>
+    <td class="text-right" id="po-row-total-${idx}">$0.00</td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="removePOLine(${idx})">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function filterPOItem(input, idx) {
+  const q = input.value.toLowerCase();
+  const dd = $(`po-dd-${idx}`);
+  dd.classList.add('open');
+  dd.querySelectorAll('.item-dropdown-row').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function showPODropdown(idx) {
+  $(`po-dd-${idx}`).classList.add('open');
+}
+
+function selectPOItem(idx, itemId, label, cost) {
+  const tr = $(`po-line-${idx}`);
+  tr.dataset.itemId = itemId;
+  tr.querySelector('input[type="text"]').value = label;
+  $(`po-cost-${idx}`).value = cost.toFixed(2);
+  $(`po-dd-${idx}`).classList.remove('open');
+  recalcPOTotal();
+}
+
+function removePOLine(idx) {
+  const tr = $(`po-line-${idx}`);
+  if (tr) tr.remove();
+  recalcPOTotal();
+}
+
+function recalcPOTotal() {
+  let total = 0;
+  document.querySelectorAll('#po-line-items tr').forEach(tr => {
+    const idx = tr.id.replace('po-line-','');
+    const qty  = parseFloat($(`po-qty-${idx}`)?.value) || 0;
+    const cost = parseFloat($(`po-cost-${idx}`)?.value) || 0;
+    const rowTotal = qty * cost;
+    const cell = $(`po-row-total-${idx}`);
+    if (cell) cell.textContent = fmt(rowTotal);
+    total += rowTotal;
+  });
+  $('po-line-total').textContent = fmt(total);
+}
+
+async function savePO() {
+  const supplier = $('po-supplier').value.trim();
+  if (!supplier) { showToast('Supplier is required', 'error'); return; }
+
+  const items = [];
+  document.querySelectorAll('#po-line-items tr').forEach(tr => {
+    const idx = tr.id.replace('po-line-','');
+    const itemId = tr.dataset.itemId;
+    if (!itemId) return;
+    items.push({
+      item_id: parseInt(itemId),
+      quantity_ordered: parseInt($(`po-qty-${idx}`)?.value) || 1,
+      unit_cost: parseFloat($(`po-cost-${idx}`)?.value) || 0
+    });
+  });
+  if (!items.length) { showToast('Add at least one line item', 'error'); return; }
+
+  const body = {
+    supplier,
+    order_date: $('po-order-date').value || null,
+    expected_date: $('po-expected-date').value || null,
+    status: $('po-status').value,
+    notes: $('po-notes').value.trim() || null,
+    items
+  };
+
+  const res = await api('POST', '/api/inventory/po', body);
+  if (res?.id) {
+    showToast(`PO ${res.po_number} created`);
+    closePOModal();
+    loadPurchaseOrders();
+  } else {
+    showToast(res?.error || 'Error saving PO', 'error');
+  }
+}
+
+async function openPODetail(id) {
+  const po = await api('GET', `/api/inventory/po/${id}`);
+  if (!po) return;
+
+  $('po-detail-title').textContent = po.po_number;
+  const itemRows = (po.items||[]).map(item => `<tr>
+    <td><code style="font-size:11px">${item.part_id}</code></td>
+    <td style="font-size:12px">${item.model||'—'}</td>
+    <td style="font-size:12px">${item.part_type||'—'}</td>
+    <td style="text-align:center">${item.quantity_ordered}</td>
+    <td style="text-align:center">${item.quantity_received}</td>
+    <td>${fmt(item.unit_cost)}</td>
+    <td class="text-right"><strong>${fmt(item.total_cost)}</strong></td>
+  </tr>`).join('');
+
+  $('po-detail-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div><div class="kpi-label">Supplier</div><div style="font-weight:600;margin-top:4px">${po.supplier||'—'}</div></div>
+      <div><div class="kpi-label">Status</div><div style="margin-top:4px">${poBadge(po.status)}</div></div>
+      <div><div class="kpi-label">Order Date</div><div style="margin-top:4px">${po.order_date ? fmtDate(po.order_date) : '—'}</div></div>
+      <div><div class="kpi-label">Expected Date</div><div style="margin-top:4px">${po.expected_date ? fmtDate(po.expected_date) : '—'}</div></div>
+      ${po.received_date ? `<div><div class="kpi-label">Received Date</div><div style="margin-top:4px">${fmtDate(po.received_date)}</div></div>` : ''}
+      <div><div class="kpi-label">Created By</div><div style="margin-top:4px">${po.created_by_name||'—'}</div></div>
+    </div>
+    ${po.notes ? `<div style="background:#f8f9fa;border-radius:6px;padding:10px;margin-bottom:16px;font-size:13px">${po.notes}</div>` : ''}
+    <div class="section-title" style="margin-bottom:10px">Line Items</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part ID</th><th>Model</th><th>Part Type</th><th>Ordered</th><th>Received</th><th>Unit Cost</th><th class="text-right">Total</th></tr></thead>
+        <tbody>${itemRows}</tbody>
+        <tfoot><tr class="tfoot"><td colspan="6">Total</td><td class="text-right">${fmt(po.total_amount)}</td></tr></tfoot>
+      </table>
+    </div>
+  `;
+
+  const footer = $('po-detail-footer');
+  footer.innerHTML = `<button class="btn btn-outline" onclick="closePODetailModal()">Close</button>`;
+  if (po.status === 'Draft') {
+    footer.innerHTML += ` <button class="btn btn-primary" onclick="updatePOStatus(${po.id},'Sent')">Mark as Sent</button>`;
+    footer.innerHTML += ` <button class="btn btn-danger btn-sm" onclick="deletePO(${po.id});closePODetailModal()">Delete PO</button>`;
+  }
+  if (po.status === 'Sent') {
+    footer.innerHTML += ` <button class="btn btn-success" onclick="receivePO(${po.id})">✓ Mark All Received</button>`;
+  }
+
+  $('po-detail-modal').classList.remove('hidden');
+}
+
+function closePODetailModal() { $('po-detail-modal').classList.add('hidden'); }
+
+async function updatePOStatus(id, status) {
+  const po = await api('GET', `/api/inventory/po/${id}`);
+  if (!po) return;
+  const res = await api('PUT', `/api/inventory/po/${id}`, { ...po, status });
+  if (res?.id) { showToast(`PO marked as ${status}`); closePODetailModal(); loadPurchaseOrders(); }
+  else showToast(res?.error || 'Error', 'error');
+}
+
+async function receivePO(id) {
+  if (!confirm('Mark all items as received? This will increment inventory stock.')) return;
+  const res = await api('POST', `/api/inventory/po/${id}/receive`);
+  if (res?.ok) { showToast('PO received — stock updated'); closePODetailModal(); loadPurchaseOrders(); }
+  else showToast(res?.error || 'Error', 'error');
+}
+
+async function deletePO(id) {
+  if (!confirm('Delete this draft PO?')) return;
+  const res = await api('DELETE', `/api/inventory/po/${id}`);
+  if (res?.ok) { showToast('PO deleted'); loadPurchaseOrders(); }
+  else showToast(res?.error || 'Error', 'error');
+}
+
+$('po-modal').addEventListener('click', e => { if (e.target === $('po-modal')) closePOModal(); });
+$('po-detail-modal').addEventListener('click', e => { if (e.target === $('po-detail-modal')) closePODetailModal(); });
+
+// ══ PURCHASE REQUISITIONS ══════════════════════════════════════════════════════
+let prLineCounter = 0;
+
+function prBadge(s) {
+  const map = { Pending:'pending', Approved:'approved', Rejected:'rejected', Converted:'converted' };
+  return `<span class="badge badge-${map[s]||'other'}">${s}</span>`;
+}
+
+function priorityBadge(p) {
+  const map = { Low:'low', Normal:'normal', High:'high', Urgent:'urgent' };
+  return `<span class="badge badge-priority-${map[p]||'normal'}">${p||'Normal'}</span>`;
+}
+
+async function loadPurchaseRequisitions() {
+  const rows = await api('GET', '/api/inventory/pr');
+  if (!rows) return;
+
+  $('pr-kpi-total').textContent     = rows.length;
+  $('pr-kpi-pending').textContent   = rows.filter(r => r.status==='Pending').length;
+  $('pr-kpi-approved').textContent  = rows.filter(r => r.status==='Approved').length;
+  $('pr-kpi-converted').textContent = rows.filter(r => r.status==='Converted').length;
+
+  const tbody = $('pr-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No requisitions yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    let actions = `<button class="btn btn-outline btn-sm" onclick="viewPR(${r.id})">View</button>`;
+    if (r.status === 'Pending') {
+      actions += ` <button class="btn btn-success btn-sm" onclick="updatePRStatus(${r.id},'Approved')">Approve</button>`;
+      actions += ` <button class="btn btn-danger btn-sm" onclick="updatePRStatus(${r.id},'Rejected')">Reject</button>`;
+      actions += ` <button class="btn btn-danger btn-sm" onclick="deletePR(${r.id})">✕</button>`;
+    }
+    if (r.status === 'Approved') {
+      actions += ` <button class="btn btn-primary btn-sm" onclick="updatePRStatus(${r.id},'Converted')">→ Convert to PO</button>`;
+    }
+    return `<tr>
+      <td><code style="font-size:12px">${r.pr_number}</code></td>
+      <td>${priorityBadge(r.priority)}</td>
+      <td style="text-align:center">${r.item_count||0}</td>
+      <td style="font-size:12px">${r.needed_by_date ? fmtDate(r.needed_by_date) : '—'}</td>
+      <td>${prBadge(r.status)}</td>
+      <td style="font-size:12px">${r.created_by_name||'—'}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${r.created_at ? new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</td>
+      <td><div class="actions">${actions}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function openNewPRModal() {
+  $('pr-priority').value = 'Normal';
+  $('pr-needed-by').value = '';
+  $('pr-notes').value = '';
+  $('pr-line-items').innerHTML = '';
+  prLineCounter = 0;
+  $('pr-modal').classList.remove('hidden');
+  addPRLineItem();
+}
+
+function closePRModal() { $('pr-modal').classList.add('hidden'); }
+
+async function addPRLineItem() {
+  if (!allInventoryItems.length) {
+    allInventoryItems = await api('GET', '/api/inventory/items') || [];
+  }
+  prLineCounter++;
+  const idx = prLineCounter;
+  const activeItems = allInventoryItems.filter(i => i.status === 'Active');
+  const tbody = $('pr-line-items');
+  const tr = document.createElement('tr');
+  tr.id = `pr-line-${idx}`;
+  tr.dataset.itemId = '';
+  tr.innerHTML = `
+    <td>
+      <div class="item-search-wrap">
+        <input type="text" placeholder="Search item…" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px"
+          oninput="filterPRItem(this,${idx})" onfocus="showPRDropdown(${idx})">
+        <div class="item-dropdown" id="pr-dd-${idx}">
+          ${activeItems.map(i =>
+            `<div class="item-dropdown-row" onclick="selectPRItem(${idx},${i.id},'${(i.part_id+'').replace(/'/g,"\\'")} — ${(i.model+'').replace(/'/g,"\\'")}',${i.cost_price||0})">
+              <strong>${i.part_id}</strong> — ${i.model||''}
+              <small style="float:right">${fmt(i.cost_price)}</small>
+            </div>`).join('')}
+        </div>
+      </div>
+    </td>
+    <td><input type="number" id="pr-qty-${idx}" value="1" min="1" style="width:60px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px"></td>
+    <td><input type="number" id="pr-est-${idx}" value="0" min="0" step="0.01" style="width:80px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px"></td>
+    <td><input type="text" id="pr-note-${idx}" placeholder="Note…" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px"></td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="removePRLine(${idx})">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function filterPRItem(input, idx) {
+  const q = input.value.toLowerCase();
+  const dd = $(`pr-dd-${idx}`);
+  dd.classList.add('open');
+  dd.querySelectorAll('.item-dropdown-row').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function showPRDropdown(idx) {
+  $(`pr-dd-${idx}`).classList.add('open');
+}
+
+function selectPRItem(idx, itemId, label, cost) {
+  const tr = $(`pr-line-${idx}`);
+  tr.dataset.itemId = itemId;
+  tr.querySelector('input[type="text"]').value = label;
+  $(`pr-est-${idx}`).value = cost.toFixed(2);
+  $(`pr-dd-${idx}`).classList.remove('open');
+}
+
+function removePRLine(idx) {
+  const tr = $(`pr-line-${idx}`);
+  if (tr) tr.remove();
+}
+
+async function savePR() {
+  const items = [];
+  document.querySelectorAll('#pr-line-items tr').forEach(tr => {
+    const idx = tr.id.replace('pr-line-','');
+    const itemId = tr.dataset.itemId;
+    if (!itemId) return;
+    items.push({
+      item_id: parseInt(itemId),
+      quantity: parseInt($(`pr-qty-${idx}`)?.value) || 1,
+      estimated_cost: parseFloat($(`pr-est-${idx}`)?.value) || 0,
+      notes: $(`pr-note-${idx}`)?.value.trim() || null
+    });
+  });
+  if (!items.length) { showToast('Add at least one item', 'error'); return; }
+
+  const body = {
+    priority: $('pr-priority').value,
+    needed_by_date: $('pr-needed-by').value || null,
+    notes: $('pr-notes').value.trim() || null,
+    items
+  };
+
+  const res = await api('POST', '/api/inventory/pr', body);
+  if (res?.id) {
+    showToast(`Requisition ${res.pr_number} submitted`);
+    closePRModal();
+    loadPurchaseRequisitions();
+  } else {
+    showToast(res?.error || 'Error saving requisition', 'error');
+  }
+}
+
+async function viewPR(id) {
+  const pr = await api('GET', `/api/inventory/pr/${id}`);
+  if (!pr) return;
+  const itemRows = (pr.items||[]).map(item => `<tr>
+    <td><code style="font-size:11px">${item.part_id}</code></td>
+    <td style="font-size:12px">${item.model||'—'}</td>
+    <td style="text-align:center">${item.quantity}</td>
+    <td>${fmt(item.estimated_cost)}</td>
+    <td style="font-size:12px">${item.notes||'—'}</td>
+  </tr>`).join('');
+
+  const content = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div><div class="kpi-label">Priority</div><div style="margin-top:4px">${priorityBadge(pr.priority)}</div></div>
+      <div><div class="kpi-label">Status</div><div style="margin-top:4px">${prBadge(pr.status)}</div></div>
+      <div><div class="kpi-label">Needed By</div><div style="margin-top:4px">${pr.needed_by_date ? fmtDate(pr.needed_by_date) : '—'}</div></div>
+      <div><div class="kpi-label">Created By</div><div style="margin-top:4px">${pr.created_by_name||'—'}</div></div>
+    </div>
+    ${pr.notes ? `<div style="background:#f8f9fa;border-radius:6px;padding:10px;margin-bottom:16px;font-size:13px">${pr.notes}</div>` : ''}
+    <div class="section-title" style="margin-bottom:10px">Requested Items</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part ID</th><th>Model</th><th>Qty</th><th>Est. Cost</th><th>Notes</th></tr></thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+    </div>
+  `;
+
+  // Reuse po-detail-modal for PR view
+  $('po-detail-title').textContent = pr.pr_number + ' — Requisition';
+  $('po-detail-body').innerHTML = content;
+  const footer = $('po-detail-footer');
+  footer.innerHTML = `<button class="btn btn-outline" onclick="closePODetailModal()">Close</button>`;
+  if (pr.status === 'Pending') {
+    footer.innerHTML += ` <button class="btn btn-success" onclick="updatePRStatus(${pr.id},'Approved');closePODetailModal()">Approve</button>`;
+    footer.innerHTML += ` <button class="btn btn-danger" onclick="updatePRStatus(${pr.id},'Rejected');closePODetailModal()">Reject</button>`;
+  }
+  if (pr.status === 'Approved') {
+    footer.innerHTML += ` <button class="btn btn-primary" onclick="updatePRStatus(${pr.id},'Converted');closePODetailModal()">→ Convert to PO</button>`;
+  }
+  $('po-detail-modal').classList.remove('hidden');
+}
+
+async function updatePRStatus(id, status) {
+  const res = await api('PUT', `/api/inventory/pr/${id}/status`, { status });
+  if (res?.id) {
+    const msg = status === 'Converted' ? 'Requisition converted to PO' : `Requisition ${status.toLowerCase()}`;
+    showToast(msg);
+    loadPurchaseRequisitions();
+    if (status === 'Converted') loadPurchaseOrders();
+  } else {
+    showToast(res?.error || 'Error', 'error');
+  }
+}
+
+async function deletePR(id) {
+  if (!confirm('Delete this pending requisition?')) return;
+  const res = await api('DELETE', `/api/inventory/pr/${id}`);
+  if (res?.ok) { showToast('Requisition deleted'); loadPurchaseRequisitions(); }
+  else showToast(res?.error || 'Error', 'error');
+}
+
+$('pr-modal').addEventListener('click', e => { if (e.target === $('pr-modal')) closePRModal(); });
+$('item-modal').addEventListener('click', e => { if (e.target === $('item-modal')) closeItemModal(); });
+$('adjust-modal').addEventListener('click', e => { if (e.target === $('adjust-modal')) closeAdjustModal(); });
 
 // ══ STARTUP ════════════════════════════════════════════════════════════════════
 populateModelSelects();
