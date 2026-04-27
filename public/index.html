@@ -2178,7 +2178,8 @@ $('sale-form').onsubmit = async e => {
     issue: $('f-issue').value.trim() || null,
     notes: $('f-notes').value.trim() || null,
     inventory_item_id: linkedItemId,
-    cost_price: parseFloat($('f-cost-price').value) || 0
+    cost_price: parseFloat($('f-cost-price').value) || 0,
+    repair_service_only: $('f-asset-type').value === 'Repair Service Only'
   };
 
   const res = await api('POST','/api/transactions', body);
@@ -2238,9 +2239,15 @@ async function loadTransactions() {
   }
 
   tbody.innerHTML = rows.map(r => {
-    const profit = r.profit || 0;
-    const cost   = r.cost_price || 0;
-    const profitStyle = profit > 0 ? 'color:#166534;font-weight:700' : profit < 0 ? 'color:#991b1b;font-weight:700' : 'color:var(--text-muted)';
+    const profit    = r.profit     ?? 0;
+    const cost      = r.cost_price ?? 0;
+    // Show cost/profit columns whenever profit is tracked (profit != 0, or cost > 0)
+    const hasCosting = profit !== 0 || cost > 0;
+    const costCell   = hasCosting ? fmt(cost) : '—';
+    const profitStyle = profit > 0 ? 'color:#166534;font-weight:700'
+                      : profit < 0 ? 'color:#991b1b;font-weight:700'
+                      : 'color:var(--text-muted)';
+    const profitCell  = hasCosting ? `<span style="${profitStyle}">${fmt(profit)}</span>` : '—';
     return `<tr>
     <td>${fmtDate(r.date)}</td>
     <td><code style="font-size:11px">${r.transaction_id||'—'}</code></td>
@@ -2252,8 +2259,8 @@ async function loadTransactions() {
     <td>${r.discount>0?fmt(r.discount):'—'}</td>
     <td>${r.tax>0?fmt(r.tax):'—'}</td>
     <td class="text-right text-green"><strong>${fmt(r.net_total)}</strong></td>
-    <td class="text-right" style="background:#fffbeb;font-size:12px">${cost>0?fmt(cost):'—'}</td>
-    <td class="text-right" style="background:#f0fdf4"><span style="${profitStyle}">${cost>0?fmt(profit):'—'}</span></td>
+    <td class="text-right" style="background:#fffbeb;font-size:12px">${costCell}</td>
+    <td class="text-right" style="background:#f0fdf4">${profitCell}</td>
     <td>${paymentBadge(r.payment_method)}</td>
     <td style="font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.customer_name||'—'}</td>
     <td style="font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.issue||r.repair_time||'—'}</td>
@@ -3463,7 +3470,31 @@ async function initSaleInventoryDropdowns() {
 
 function onSaleAssetTypeChange() {
   const assetType = $('f-asset-type').value;
-  const modelSel = $('f-model');
+  const modelSel  = $('f-model');
+
+  // ── Repair Service Only — no inventory, cost = 0, profit = full revenue ──
+  if (assetType === 'Repair Service Only') {
+    modelSel.innerHTML = '<option value="">N/A — Service only</option>';
+    $('f-part-type').value = '';
+    $('f-color').value     = '';
+    $('f-grade').value     = '';
+    $('f-linked-item-id').value = '';
+    $('f-cost-price').value = '0';
+    $('sale-cost-group').style.display = '';
+    // Show a distinct green service badge
+    const badge = $('sale-stock-badge');
+    badge.style.cssText = 'padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;background:#dcfce7;color:#166534;border:1px solid #22c55e;margin-top:4px';
+    badge.innerHTML = '✅ Service only — no parts used &nbsp;|&nbsp; Cost: $0 &nbsp;|&nbsp; Full revenue = Profit';
+    $('sale-stock-indicator').style.display = '';
+    return;
+  }
+
+  // ── Normal asset type ──
+  $('sale-stock-indicator').style.display = 'none';
+  $('sale-cost-group').style.display = 'none';
+  $('f-linked-item-id').value = '';
+  $('f-cost-price').value = '0';
+
   modelSel.innerHTML = '<option value="">Select model</option>';
   if (invMeta && assetType) {
     (invMeta.deviceModels[assetType] || []).forEach(m => {
@@ -3471,8 +3502,6 @@ function onSaleAssetTypeChange() {
       modelSel.appendChild(o);
     });
   }
-  $('f-linked-item-id').value = '';
-  $('sale-stock-indicator').style.display = 'none';
   onSaleItemChange();
 }
 

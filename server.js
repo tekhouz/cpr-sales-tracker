@@ -61,7 +61,8 @@ const DEVICE_MODELS = {
   'HP': ['HP Spectre x360 13','HP Spectre x360 14','HP Spectre x360 15','HP Envy 13','HP Envy 14','HP Envy 15','HP Pavilion 14','HP Pavilion 15','HP EliteBook 840','HP EliteBook 850','HP ProBook 440','HP ProBook 450','HP OMEN 15','HP OMEN 16','HP Victus 15','HP Victus 16','Other HP Model'],
   'Lenovo': ['ThinkPad X1 Carbon','ThinkPad X1 Extreme','ThinkPad T14','ThinkPad T14s','ThinkPad T15','ThinkPad E14','ThinkPad E15','ThinkPad L14','ThinkPad L15','IdeaPad 3','IdeaPad 5','IdeaPad Slim 5','IdeaPad Slim 7','Legion 5','Legion 5 Pro','Legion 7','Yoga 7','Yoga 9','Yoga Slim 7','Other Lenovo Model'],
   'Nintendo': ['Nintendo Switch','Nintendo Switch Lite','Nintendo Switch OLED','Nintendo 3DS','Nintendo 3DS XL','Nintendo 2DS','New Nintendo 3DS','New Nintendo 3DS XL','Joy-Con Controllers','Nintendo Switch Pro Controller','Nintendo DS','Nintendo DS Lite','Other Nintendo Device'],
-  'Others': ['Other']
+  'Others': ['Other'],
+  'Repair Service Only': []   // labour / service — no inventory used, full revenue = profit
 };
 
 const PART_TYPES = {
@@ -371,8 +372,14 @@ app.post('/api/transactions', requireAuth, (req, res) => {
       }
     }
 
+    // Repair Service Only — no parts, cost = 0, profit = full line total
+    if (t.repair_service_only) {
+      const profit = Math.round((insertData.line_total || 0) * 100) / 100;
+      db.prepare('UPDATE transactions SET cost_price=0, profit=? WHERE id=?').run(profit, saved.id);
+    }
+
     // Decrement inventory + calculate FIFO cost — main linked item (ALL categories)
-    if (t.inventory_item_id) {
+    if (!t.repair_service_only && t.inventory_item_id) {
       const saleQty = parseFloat(t.quantity) || 1;
       const itemId  = parseInt(t.inventory_item_id);
       const txnRef  = saved.transaction_id || String(saved.id);
