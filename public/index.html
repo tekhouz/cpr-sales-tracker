@@ -508,10 +508,16 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
                   <option value="D">D — Non Working</option>
                 </select>
               </div>
-              <!-- Stock indicator -->
-              <div class="form-group span-2" id="sale-stock-indicator" style="display:none">
-                <div id="sale-stock-badge" style="padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px"></div>
+              <!-- Stock indicator + Cost Price -->
+              <div class="form-group" id="sale-stock-indicator" style="display:none">
+                <label>Stock Status</label>
+                <div id="sale-stock-badge" style="padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;margin-top:4px"></div>
                 <input type="hidden" id="f-linked-item-id">
+              </div>
+              <div class="form-group" id="sale-cost-group" style="display:none">
+                <label>Cost Price ($) <span style="font-size:11px;color:var(--text-muted);font-weight:400">(FIFO — auto)</span></label>
+                <input type="number" id="f-cost-price" placeholder="0.00" step="0.01" min="0" value="0"
+                  style="background:#fffbeb;border-color:#f59e0b">
               </div>
               <!-- ── end inventory fields ── -->
               <div class="form-group" id="screen-type-group" style="display:none">
@@ -679,6 +685,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
                 <th>Date</th><th>TXN ID</th><th>Category</th><th>Item / Model</th>
                 <th>Screen</th><th>Qty</th><th>Unit $</th><th>Discount</th>
                 <th>Tax</th><th class="text-right">Net Total</th>
+                <th class="text-right" style="background:#fffbeb;color:#92400e">Cost</th>
+                <th class="text-right" style="background:#f0fdf4;color:#166534">Profit</th>
                 <th>Payment</th><th>Customer</th><th>Issue</th><th>Actions</th>
               </tr></thead>
               <tbody id="txn-tbody"></tbody>
@@ -810,7 +818,13 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
           <div class="card-header"><h3>Category Breakdown</h3></div>
           <div class="card-body" style="padding:0">
             <div class="table-wrap"><table>
-              <thead><tr><th>Category</th><th>Txns</th><th class="text-right">Revenue</th><th class="text-right">% of Total</th></tr></thead>
+              <thead><tr>
+                <th>Category</th><th>Txns</th>
+                <th class="text-right">Revenue</th>
+                <th class="text-right" style="background:#fffbeb;color:#92400e">Cost</th>
+                <th class="text-right" style="background:#f0fdf4;color:#166534">Profit</th>
+                <th class="text-right">Margin %</th>
+              </tr></thead>
               <tbody id="rpt-cat-tbody"></tbody>
             </table></div>
           </div>
@@ -2123,7 +2137,9 @@ function resetSaleForm() {
   $('f-grade').value      = '';
   $('f-model-number').value = '';
   $('f-linked-item-id').value = '';
+  $('f-cost-price').value = '0';
   $('sale-stock-indicator').style.display = 'none';
+  $('sale-cost-group').style.display = 'none';
 }
 
 $('sale-form').onsubmit = async e => {
@@ -2161,7 +2177,8 @@ $('sale-form').onsubmit = async e => {
     repair_time: $('f-repair-time').value.trim() || null,
     issue: $('f-issue').value.trim() || null,
     notes: $('f-notes').value.trim() || null,
-    inventory_item_id: linkedItemId
+    inventory_item_id: linkedItemId,
+    cost_price: parseFloat($('f-cost-price').value) || 0
   };
 
   const res = await api('POST','/api/transactions', body);
@@ -2215,12 +2232,16 @@ async function loadTransactions() {
 
   const tbody = $('txn-tbody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="14" class="empty-state">No transactions found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16" class="empty-state">No transactions found</td></tr>';
     $('txn-tfoot').innerHTML = '';
     return;
   }
 
-  tbody.innerHTML = rows.map(r => `<tr>
+  tbody.innerHTML = rows.map(r => {
+    const profit = r.profit || 0;
+    const cost   = r.cost_price || 0;
+    const profitStyle = profit > 0 ? 'color:#166534;font-weight:700' : profit < 0 ? 'color:#991b1b;font-weight:700' : 'color:var(--text-muted)';
+    return `<tr>
     <td>${fmtDate(r.date)}</td>
     <td><code style="font-size:11px">${r.transaction_id||'—'}</code></td>
     <td>${categoryBadge(r.category)}</td>
@@ -2231,6 +2252,8 @@ async function loadTransactions() {
     <td>${r.discount>0?fmt(r.discount):'—'}</td>
     <td>${r.tax>0?fmt(r.tax):'—'}</td>
     <td class="text-right text-green"><strong>${fmt(r.net_total)}</strong></td>
+    <td class="text-right" style="background:#fffbeb;font-size:12px">${cost>0?fmt(cost):'—'}</td>
+    <td class="text-right" style="background:#f0fdf4"><span style="${profitStyle}">${cost>0?fmt(profit):'—'}</span></td>
     <td>${paymentBadge(r.payment_method)}</td>
     <td style="font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.customer_name||'—'}</td>
     <td style="font-size:12px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.issue||r.repair_time||'—'}</td>
@@ -2238,15 +2261,18 @@ async function loadTransactions() {
       <button class="btn btn-outline btn-sm" onclick="openEditModal(${r.id})">✏</button>
       <button class="btn btn-danger btn-sm" onclick="deleteTransaction(${r.id})">✕</button>
     </div></td>
-  </tr>`).join('');
+  </tr>`;}).join('');
 
-  const totalNet = rows.reduce((s,r)=>s+(r.net_total||0),0);
-  const totalLine = rows.reduce((s,r)=>s+(r.line_total||0),0);
-  const totalTax = rows.reduce((s,r)=>s+(r.tax||0),0);
+  const totalNet    = rows.reduce((s,r)=>s+(r.net_total||0),0);
+  const totalTax    = rows.reduce((s,r)=>s+(r.tax||0),0);
+  const totalCost   = rows.reduce((s,r)=>s+(r.cost_price||0),0);
+  const totalProfit = rows.reduce((s,r)=>s+(r.profit||0),0);
   $('txn-tfoot').innerHTML = `<tr class="tfoot">
     <td colspan="8">Total (${rows.length} transactions)</td>
     <td>${fmt(totalTax)}</td>
     <td class="text-right">${fmt(totalNet)}</td>
+    <td class="text-right" style="background:#fffbeb">${totalCost>0?fmt(totalCost):'—'}</td>
+    <td class="text-right" style="background:#f0fdf4;color:#166534;font-weight:700">${totalCost>0?fmt(totalProfit):'—'}</td>
     <td colspan="4"></td>
   </tr>`;
 }
@@ -2492,9 +2518,11 @@ async function loadReports() {
 
   // KPIs
   const t = data.totals;
+  const margin = t.total_line > 0 ? (t.total_profit / t.total_line * 100).toFixed(1) : '0.0';
   $('rpt-kpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Net Revenue</div><div class="kpi-value">${fmt(t.total_net)}</div></div>
-    <div class="kpi-card green"><div class="kpi-label">Sales Revenue</div><div class="kpi-value">${fmt(t.total_line)}</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Gross Profit</div><div class="kpi-value" style="color:#166534">${fmt(t.total_profit)}</div><div class="kpi-sub">Margin: ${margin}%</div></div>
+    <div class="kpi-card" style="border-left-color:#f59e0b"><div class="kpi-label">Total COGS</div><div class="kpi-value" style="color:#92400e">${fmt(t.total_cost)}</div><div class="kpi-sub">Cost of goods sold</div></div>
     <div class="kpi-card orange"><div class="kpi-label">Tax Collected</div><div class="kpi-value">${fmt(t.total_tax)}</div></div>
     <div class="kpi-card cash"><div class="kpi-label">Transactions</div><div class="kpi-value">${t.transaction_count}</div></div>
     <div class="kpi-card"><div class="kpi-label">Avg Ticket</div><div class="kpi-value">${t.transaction_count>0?fmt(t.total_net/t.transaction_count):'$0.00'}</div></div>
@@ -2519,22 +2547,29 @@ async function loadReports() {
     });
   }
 
-  // Trend chart
+  // Trend chart — Revenue + Profit
   destroyChart('rpt-trend');
   if (data.byDate.length) {
     charts['rpt-trend'] = new Chart($('rpt-chart-trend'), {
       type: 'line',
       data: {
         labels: data.byDate.map(d=>fmtDate(d.date)),
-        datasets: [{
-          label: 'Revenue', data: data.byDate.map(d=>d.net_total),
-          borderColor: '#0055a5', backgroundColor: 'rgba(0,85,165,0.1)',
-          fill: true, tension: 0.3, pointRadius: 4
-        }]
+        datasets: [
+          {
+            label: 'Revenue', data: data.byDate.map(d=>d.net_total),
+            borderColor: '#0055a5', backgroundColor: 'rgba(0,85,165,0.08)',
+            fill: true, tension: 0.3, pointRadius: 4
+          },
+          {
+            label: 'Profit', data: data.byDate.map(d=>d.total_profit||0),
+            borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)',
+            fill: true, tension: 0.3, pointRadius: 4, borderDash: [4,3]
+          }
+        ]
       },
       options: {
         responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false} },
+        plugins:{ legend:{ display:true, position:'top' } },
         scales:{ y:{ ticks:{ callback: v=>'$'+v.toLocaleString() } } }
       }
     });
@@ -2543,13 +2578,20 @@ async function loadReports() {
   // Category table
   const total = data.totals.total_net;
   $('rpt-cat-tbody').innerHTML = cats.length
-    ? cats.map(c=>`<tr>
-        <td>${categoryBadge(c.category)}</td>
-        <td>${c.count}</td>
-        <td class="text-right"><strong>${fmt(c.net_total)}</strong></td>
-        <td class="text-right">${total>0?(c.net_total/total*100).toFixed(1)+'%':'0%'}</td>
-      </tr>`).join('')
-    : '<tr><td colspan="4" class="empty-state">No data</td></tr>';
+    ? cats.map(c => {
+        const catMargin = c.total_cost > 0 && c.net_total > 0
+          ? (c.total_profit / c.line_total * 100).toFixed(1) + '%' : '—';
+        const profitColor = (c.total_profit||0) > 0 ? '#166534' : (c.total_profit||0) < 0 ? '#991b1b' : 'inherit';
+        return `<tr>
+          <td>${categoryBadge(c.category)}</td>
+          <td>${c.count}</td>
+          <td class="text-right"><strong>${fmt(c.net_total)}</strong></td>
+          <td class="text-right" style="background:#fffbeb">${c.total_cost>0?fmt(c.total_cost):'—'}</td>
+          <td class="text-right" style="background:#f0fdf4;color:${profitColor};font-weight:600">${c.total_cost>0?fmt(c.total_profit):'—'}</td>
+          <td class="text-right">${catMargin}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" class="empty-state">No data</td></tr>';
 
   // Payment table
   $('rpt-pay-tbody').innerHTML = data.byPayment.length
@@ -3446,13 +3488,16 @@ async function lookupSaleInventory() {
   const grade     = $('f-grade').value;
   const partType  = $('f-part-type').value;
 
-  const badge   = $('sale-stock-badge');
-  const indic   = $('sale-stock-indicator');
+  const badge    = $('sale-stock-badge');
+  const indic    = $('sale-stock-indicator');
+  const costGrp  = $('sale-cost-group');
   const hiddenId = $('f-linked-item-id');
 
   if (!model) {
     indic.style.display = 'none';
+    costGrp.style.display = 'none';
     hiddenId.value = '';
+    $('f-cost-price').value = '0';
     return;
   }
 
@@ -3466,36 +3511,44 @@ async function lookupSaleInventory() {
   indic.style.display = '';
 
   if (!item) {
-    badge.style.background = '#fef3c7';
-    badge.style.color = '#92400e';
-    badge.style.border = '1px solid #f59e0b';
-    badge.innerHTML = '⚠️ No inventory item found — sale will NOT reduce stock';
+    badge.style.cssText = 'padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;margin-top:4px';
+    badge.innerHTML = '⚠️ No inventory item found — stock will NOT reduce';
     hiddenId.value = '';
+    costGrp.style.display = 'none';
+    $('f-cost-price').value = '0';
     return;
   }
 
   hiddenId.value = item.id;
+
+  // Fetch FIFO cost for current qty
+  const saleQty = parseFloat($('f-qty').value) || 1;
+  const costData = await api('GET', `/api/inventory/fifo-cost?item_id=${item.id}&quantity=${saleQty}`);
+  const unitCost = costData?.unitCost ?? item.cost_price ?? 0;
+  $('f-cost-price').value = (unitCost * saleQty).toFixed(2);
+  costGrp.style.display = '';
+
   const qty = item.quantity ?? 0;
   const isNeg = qty < 0;
-  const isLow = qty <= (item.min_quantity ?? 1) && qty >= 0;
+  const isLow = !isNeg && qty <= (item.min_quantity ?? 1);
+  const colorInfo = [item.color, item.grade].filter(Boolean).join(' · ');
 
   if (isNeg) {
-    badge.style.background = '#fee2e2';
-    badge.style.color = '#991b1b';
-    badge.style.border = '1px solid #ef4444';
-    badge.innerHTML = `🔴 <strong>${item.part_id}</strong> &nbsp;|&nbsp; ${item.color||''} ${item.grade||''} &nbsp;|&nbsp; Stock: <strong>${qty}</strong> (NEGATIVE — over-sold)`;
+    badge.style.cssText = 'padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;background:#fee2e2;color:#991b1b;border:1px solid #ef4444;margin-top:4px';
+    badge.innerHTML = `🔴 <strong>${item.part_id}</strong>${colorInfo?' &nbsp;|&nbsp; '+colorInfo:''} &nbsp;|&nbsp; Stock: <strong>${qty}</strong> ⚠ NEGATIVE`;
   } else if (isLow) {
-    badge.style.background = '#fff7ed';
-    badge.style.color = '#92400e';
-    badge.style.border = '1px solid #f59e0b';
-    badge.innerHTML = `🟡 <strong>${item.part_id}</strong> &nbsp;|&nbsp; ${item.color||''} ${item.grade||''} &nbsp;|&nbsp; Stock: <strong>${qty}</strong> (Low)`;
+    badge.style.cssText = 'padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;background:#fff7ed;color:#92400e;border:1px solid #f59e0b;margin-top:4px';
+    badge.innerHTML = `🟡 <strong>${item.part_id}</strong>${colorInfo?' &nbsp;|&nbsp; '+colorInfo:''} &nbsp;|&nbsp; Stock: <strong>${qty}</strong> (Low)`;
   } else {
-    badge.style.background = '#dcfce7';
-    badge.style.color = '#166534';
-    badge.style.border = '1px solid #22c55e';
-    badge.innerHTML = `🟢 <strong>${item.part_id}</strong> &nbsp;|&nbsp; ${item.color||''} ${item.grade||''} &nbsp;|&nbsp; In Stock: <strong>${qty}</strong>`;
+    badge.style.cssText = 'padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;background:#dcfce7;color:#166534;border:1px solid #22c55e;margin-top:4px';
+    badge.innerHTML = `🟢 <strong>${item.part_id}</strong>${colorInfo?' &nbsp;|&nbsp; '+colorInfo:''} &nbsp;|&nbsp; In Stock: <strong>${qty}</strong>`;
   }
 }
+
+// Re-fetch FIFO cost when quantity changes
+$('f-qty').addEventListener('input', () => {
+  if ($('f-linked-item-id').value) lookupSaleInventory();
+});
 
 // ══ PURCHASE ORDERS ══════════════════════════════════════════════════════════
 let poLineCounter = 0;

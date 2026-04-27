@@ -167,8 +167,59 @@ db.exec(`
   );
 `);
 
-// Add repair_type column if migrating from older db
+// ── MIGRATIONS (safe to run multiple times) ──────────────────────────────────
 try { db.exec('ALTER TABLE transactions ADD COLUMN repair_type TEXT'); } catch(e) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN cost_price REAL DEFAULT 0'); } catch(e) {}
+try { db.exec('ALTER TABLE transactions ADD COLUMN profit REAL DEFAULT 0'); } catch(e) {}
+
+// FIFO batch table — one row per stock-in event, tracks quantity remaining
+db.exec(`
+  CREATE TABLE IF NOT EXISTS inventory_batches (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id           INTEGER NOT NULL,
+    cost_price        REAL    NOT NULL DEFAULT 0,
+    quantity_purchased INTEGER NOT NULL DEFAULT 0,
+    quantity_remaining INTEGER NOT NULL DEFAULT 0,
+    notes             TEXT,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_batch_item ON inventory_batches(item_id, created_at);
+`);
+
+// ── FIFO HELPER ───────────────────────────────────────────────────────────────
+// Returns { unitCost, totalCost } using oldest batches first.
+// Deducts batch quantities in-place when deduct=true.
+function fifoCost(itemId, qty, deduct = false) {
+  const batches = db.prepare(
+    `SELECT * FROM inventory_batches
+     WHERE item_id = ? AND quantity_remaining > 0
+     ORDER BY created_at ASC, id ASC`
+  ).all(itemId);
+
+  let remaining = qty;
+  let totalCost = 0;
+
+  for (const b of batches) {
+    if (remaining <= 0) break;
+    const used = Math.min(remaining, b.quantity_remaining);
+    totalCost += used * b.cost_price;
+    remaining -= used;
+    if (deduct) {
+      db.prepare('UPDATE inventory_batches SET quantity_remaining = quantity_remaining - ? WHERE id = ?')
+        .run(used, b.id);
+    }
+  }
+
+  // If batches didn't cover full qty, fall back to item's current cost_price
+  if (remaining > 0) {
+    const item = db.prepare('SELECT cost_price FROM inventory_items WHERE id = ?').get(itemId);
+    totalCost += remaining * (item?.cost_price || 0);
+  }
+
+  const unitCost = qty > 0 ? totalCost / qty : 0;
+  return { unitCost: Math.round(unitCost * 10000) / 10000, totalCost: Math.round(totalCost * 100) / 100 };
+}
 
 // Seed default users on first run
 const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get();
@@ -320,14 +371,25 @@ app.post('/api/transactions', requireAuth, (req, res) => {
       }
     }
 
-    // Decrement inventory — main linked item (ALL categories)
+    // Decrement inventory + calculate FIFO cost — main linked item (ALL categories)
     if (t.inventory_item_id) {
       const saleQty = parseFloat(t.quantity) || 1;
       const itemId  = parseInt(t.inventory_item_id);
       const txnRef  = saved.transaction_id || String(saved.id);
-      // UPSERT: create stock row if missing (negative start), otherwise subtract
-      const existing = db.prepare('SELECT id FROM inventory_stock WHERE item_id=?').get(itemId);
-      if (existing) {
+
+      // FIFO cost — deduct batch quantities
+      const { totalCost } = fifoCost(itemId, saleQty, true);
+      // Allow manual override cost_price from the form, else use FIFO
+      const costPrice = parseFloat(t.cost_price) > 0 ? parseFloat(t.cost_price) : totalCost;
+      const profit    = Math.round(((insertData.line_total || 0) - costPrice) * 100) / 100;
+
+      // Update transaction with cost & profit
+      db.prepare('UPDATE transactions SET cost_price=?, profit=? WHERE id=?')
+        .run(costPrice, profit, saved.id);
+
+      // UPSERT stock row
+      const stockRow = db.prepare('SELECT id FROM inventory_stock WHERE item_id=?').get(itemId);
+      if (stockRow) {
         db.prepare('UPDATE inventory_stock SET quantity=quantity-?, last_updated=CURRENT_TIMESTAMP WHERE item_id=?')
           .run(saleQty, itemId);
       } else {
@@ -337,7 +399,7 @@ app.post('/api/transactions', requireAuth, (req, res) => {
       db.prepare(`
         INSERT INTO inventory_movements (item_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
         VALUES (?, 'OUT', ?, 'SALE', ?, ?, ?)
-      `).run(itemId, saleQty, txnRef, `${t.category} sale — TXN ${txnRef}`, req.session.userId);
+      `).run(itemId, saleQty, txnRef, `${t.category} — TXN ${txnRef}`, req.session.userId);
     }
 
 
@@ -382,7 +444,8 @@ app.get('/api/summary/kpi', requireAuth, (req, res) => {
   const monthStart = today.slice(0, 8) + '01';
 
   const q = (start, end) => db.prepare(
-    `SELECT COUNT(*) as count, COALESCE(SUM(net_total),0) as revenue
+    `SELECT COUNT(*) as count, COALESCE(SUM(net_total),0) as revenue,
+            COALESCE(SUM(profit),0) as profit
      FROM transactions WHERE date >= ? AND date <= ?`
   ).get(start, end);
 
@@ -417,14 +480,18 @@ app.get('/api/summary', requireAuth, (req, res) => {
            COALESCE(SUM(quantity),0)   as total_quantity,
            COALESCE(SUM(line_total),0) as total_line,
            COALESCE(SUM(tax),0)        as total_tax,
-           COALESCE(SUM(net_total),0)  as total_net
+           COALESCE(SUM(net_total),0)  as total_net,
+           COALESCE(SUM(cost_price),0) as total_cost,
+           COALESCE(SUM(profit),0)     as total_profit
     FROM transactions WHERE date >= ? AND date <= ?
   `).get(startDate, endDate);
 
   const byCategory = db.prepare(`
     SELECT category, COUNT(*) as count,
            COALESCE(SUM(line_total),0) as line_total,
-           COALESCE(SUM(net_total),0)  as net_total
+           COALESCE(SUM(net_total),0)  as net_total,
+           COALESCE(SUM(cost_price),0) as total_cost,
+           COALESCE(SUM(profit),0)     as total_profit
     FROM transactions WHERE date >= ? AND date <= ?
     GROUP BY category ORDER BY net_total DESC
   `).all(startDate, endDate);
@@ -439,7 +506,9 @@ app.get('/api/summary', requireAuth, (req, res) => {
   const byDate = db.prepare(`
     SELECT date, COUNT(*) as count,
            COALESCE(SUM(line_total),0) as line_total,
-           COALESCE(SUM(net_total),0)  as net_total
+           COALESCE(SUM(net_total),0)  as net_total,
+           COALESCE(SUM(cost_price),0) as total_cost,
+           COALESCE(SUM(profit),0)     as total_profit
     FROM transactions WHERE date >= ? AND date <= ?
     GROUP BY date ORDER BY date
   `).all(startDate, endDate);
@@ -801,6 +870,14 @@ app.get('/api/inventory/items/meta', requireAuth, (req, res) => {
   res.json({ assetTypes, partTypes, deviceModels: DEVICE_MODELS });
 });
 
+// GET /api/inventory/fifo-cost?item_id=X&quantity=Y
+app.get('/api/inventory/fifo-cost', requireAuth, (req, res) => {
+  const itemId = parseInt(req.query.item_id);
+  const qty    = parseFloat(req.query.quantity) || 1;
+  if (!itemId) return res.json({ unitCost: 0, totalCost: 0 });
+  res.json(fifoCost(itemId, qty, false)); // preview only, no deduction
+});
+
 // GET /api/inventory/lookup — find best matching item by asset_type + model + optional color/grade/part_type
 app.get('/api/inventory/lookup', requireAuth, (req, res) => {
   const { asset_type, model, color, grade, part_type } = req.query;
@@ -941,16 +1018,16 @@ app.delete('/api/inventory/items/:id', requireAuth, (req, res) => {
 
 // POST /api/inventory/stock/:itemId/adjust
 app.post('/api/inventory/stock/:itemId/adjust', requireAuth, (req, res) => {
-  const { quantity, movement_type, notes } = req.body;
-  const qty = parseInt(quantity) || 0;
-  const itemId = req.params.itemId;
-  const stock = db.prepare('SELECT * FROM inventory_stock WHERE item_id=?').get(itemId);
+  const { quantity, movement_type, notes, cost_price } = req.body;
+  const qty    = parseInt(quantity) || 0;
+  const itemId = parseInt(req.params.itemId);
+  const stock  = db.prepare('SELECT * FROM inventory_stock WHERE item_id=?').get(itemId);
   if (!stock) return res.status(404).json({ error: 'Item not found' });
 
   let newQty;
-  if (movement_type === 'IN')         newQty = stock.quantity + qty;
-  else if (movement_type === 'OUT')   newQty = stock.quantity - qty; // allow negative
-  else                                newQty = qty; // ADJUSTMENT = set to value
+  if (movement_type === 'IN')       newQty = stock.quantity + qty;
+  else if (movement_type === 'OUT') newQty = stock.quantity - qty; // allow negative
+  else                              newQty = qty; // ADJUSTMENT = set absolute value
 
   db.prepare('UPDATE inventory_stock SET quantity=?, last_updated=CURRENT_TIMESTAMP WHERE item_id=?')
     .run(newQty, itemId);
@@ -958,6 +1035,16 @@ app.post('/api/inventory/stock/:itemId/adjust', requireAuth, (req, res) => {
     INSERT INTO inventory_movements (item_id, movement_type, quantity, reference_type, notes, created_by)
     VALUES (?, ?, ?, 'ADJUSTMENT', ?, ?)
   `).run(itemId, movement_type, qty, notes||null, req.session.userId);
+
+  // Create a FIFO batch when stock is added in
+  if (movement_type === 'IN' && qty > 0) {
+    const unitCost = parseFloat(cost_price) ||
+      db.prepare('SELECT cost_price FROM inventory_items WHERE id=?').get(itemId)?.cost_price || 0;
+    db.prepare(`
+      INSERT INTO inventory_batches (item_id, cost_price, quantity_purchased, quantity_remaining, notes)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(itemId, unitCost, qty, qty, notes || 'Manual stock-in');
+  }
 
   res.json({ ok: true, newQuantity: newQty });
 });
@@ -1056,6 +1143,13 @@ app.post('/api/inventory/po/:id/receive', requireAuth, (req, res) => {
         INSERT INTO inventory_movements (item_id, movement_type, quantity, reference_type, reference_id, notes, created_by)
         VALUES (?, 'IN', ?, 'PO', ?, ?, ?)
       `).run(item.item_id, qty, po.po_number, `Received from PO ${po.po_number}`, req.session.userId);
+      // FIFO batch — use PO line-item unit price as cost
+      const unitCost = item.unit_price ||
+        db.prepare('SELECT cost_price FROM inventory_items WHERE id=?').get(item.item_id)?.cost_price || 0;
+      db.prepare(`
+        INSERT INTO inventory_batches (item_id, cost_price, quantity_purchased, quantity_remaining, notes)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(item.item_id, unitCost, qty, qty, `PO ${po.po_number}`);
     }
     db.prepare(`UPDATE purchase_orders SET status='Received', received_date=? WHERE id=?`)
       .run(localDate(), poId);
