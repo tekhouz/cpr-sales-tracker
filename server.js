@@ -244,6 +244,8 @@ if (userCount.c === 0) {
   );
 }
 
+app.set('trust proxy', 1); // Required for secure cookies behind Railway / any reverse proxy
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
