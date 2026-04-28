@@ -1381,20 +1381,23 @@ app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Send { "confirm": "RESET ALL DATA" } to proceed' });
   }
   try {
+    db.exec(`PRAGMA foreign_keys=OFF;`);
+    // Delete child tables first, then parents — and FK checks off as safety net
     db.exec(`
-      DELETE FROM transactions;
-      DELETE FROM leads;
-      DELETE FROM cash_handover;
       DELETE FROM inventory_movements;
       DELETE FROM inventory_batches;
       DELETE FROM inventory_stock;
-      DELETE FROM inventory_items;
       DELETE FROM po_items;
-      DELETE FROM purchase_orders;
       DELETE FROM pr_items;
+      DELETE FROM inventory_items;
+      DELETE FROM purchase_orders;
       DELETE FROM purchase_requisitions;
+      DELETE FROM transactions;
+      DELETE FROM leads;
+      DELETE FROM cash_handover;
     `);
-    // Reset auto-increment sequences
+    db.exec(`PRAGMA foreign_keys=ON;`);
+    // Reset auto-increment sequences so IDs restart from 1
     try {
       db.exec(`
         DELETE FROM sqlite_sequence WHERE name IN (
@@ -1403,10 +1406,11 @@ app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
           'purchase_orders','po_items','purchase_requisitions','pr_items'
         );
       `);
-    } catch(e) { /* sqlite_sequence may not exist if table was never used */ }
+    } catch(e) { /* sqlite_sequence may not exist if tables were never used */ }
     db.pragma('wal_checkpoint(TRUNCATE)');
     res.json({ ok: true, message: 'All business data wiped. User accounts preserved.' });
   } catch(e) {
+    db.exec(`PRAGMA foreign_keys=ON;`); // always re-enable
     res.status(500).json({ error: e.message });
   }
 });
