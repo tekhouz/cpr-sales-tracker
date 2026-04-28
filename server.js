@@ -4,6 +4,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 // ── INVENTORY CONSTANTS ───────────────────────────────────────────────────────
 const DEVICE_MODELS = {
@@ -91,6 +92,11 @@ const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'cpr_sales.db');
 const db = new Database(DB_PATH);
 
+// Warn if using default secret (never safe in production)
+if (!process.env.SESSION_SECRET) {
+  console.warn('\n  ⚠️  SESSION_SECRET env var not set — using insecure default. Set it in Railway Variables!\n');
+}
+
 db.exec(`
   PRAGMA journal_mode=WAL;
 
@@ -168,6 +174,11 @@ db.exec(`
   );
 `);
 
+// Merge any orphaned WAL pages on startup, then keep auto-checkpoint at 500 pages
+try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch(e) {}
+db.pragma('wal_autocheckpoint=500');
+db.pragma('synchronous=NORMAL');  // faster writes, safe with WAL
+
 // ── MIGRATIONS (safe to run multiple times) ──────────────────────────────────
 try { db.exec('ALTER TABLE transactions ADD COLUMN repair_type TEXT'); } catch(e) {}
 try { db.exec('ALTER TABLE transactions ADD COLUMN cost_price REAL DEFAULT 0'); } catch(e) {}
@@ -239,7 +250,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'cpr-tracker-secret-key-2026',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 }
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production'   // HTTPS-only cookies on Railway
+  }
 }));
 
 const requireAuth = (req, res, next) => {
@@ -247,9 +263,35 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
+const requireAdmin = (req, res, next) => {
+  if (req.session.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  next();
+};
+
+// ── LOGIN RATE LIMITER (simple in-memory, no extra dependency) ────────────────
+const loginBucket = new Map(); // ip → { count, resetAt }
+function loginRateLimit(req, res, next) {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = loginBucket.get(ip) || { count: 0, resetAt: now + 15 * 60 * 1000 };
+  if (now > entry.resetAt) { entry.count = 0; entry.resetAt = now + 15 * 60 * 1000; }
+  entry.count++;
+  loginBucket.set(ip, entry);
+  if (entry.count > 10) {
+    const wait = Math.ceil((entry.resetAt - now) / 1000 / 60);
+    return res.status(429).json({ error: `Too many login attempts. Try again in ${wait} min.` });
+  }
+  next();
+}
+// Clean up old buckets every 20 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, e] of loginBucket) if (now > e.resetAt) loginBucket.delete(ip);
+}, 20 * 60 * 1000);
+
 // ── AUTH ────────────────────────────────────────────────────────────────────
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', loginRateLimit, (req, res) => {
   const { username, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
@@ -1302,8 +1344,131 @@ function getMonthEnd(ds) {
   return d.toISOString().split('T')[0];
 }
 
+// ── HEALTH CHECK ─────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  try {
+    db.prepare('SELECT 1').get();
+    res.json({ status: 'ok', ts: new Date().toISOString() });
+  } catch(e) {
+    res.status(503).json({ status: 'error', error: e.message });
+  }
+});
+
+// ── ADMIN ROUTES ──────────────────────────────────────────────────────────────
+
+// GET /api/admin/backup  — download a clean SQLite snapshot
+app.get('/api/admin/backup', requireAuth, requireAdmin, (req, res) => {
+  try {
+    // Checkpoint WAL so the .db file is self-contained and up-to-date
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    const fname = `cpr_backup_${new Date().toISOString().slice(0,10)}.db`;
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    const stream = fs.createReadStream(DB_PATH);
+    stream.on('error', err => res.status(500).end(err.message));
+    stream.pipe(res);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/reset  — wipe all business data, preserve user accounts
+app.post('/api/admin/reset', requireAuth, requireAdmin, (req, res) => {
+  const { confirm } = req.body || {};
+  if (confirm !== 'RESET ALL DATA') {
+    return res.status(400).json({ error: 'Send { "confirm": "RESET ALL DATA" } to proceed' });
+  }
+  try {
+    db.exec(`
+      DELETE FROM transactions;
+      DELETE FROM leads;
+      DELETE FROM cash_handover;
+      DELETE FROM inventory_movements;
+      DELETE FROM inventory_batches;
+      DELETE FROM inventory_stock;
+      DELETE FROM inventory_items;
+      DELETE FROM po_items;
+      DELETE FROM purchase_orders;
+      DELETE FROM pr_items;
+      DELETE FROM purchase_requisitions;
+    `);
+    // Reset auto-increment sequences
+    try {
+      db.exec(`
+        DELETE FROM sqlite_sequence WHERE name IN (
+          'transactions','leads','cash_handover',
+          'inventory_items','inventory_stock','inventory_movements','inventory_batches',
+          'purchase_orders','po_items','purchase_requisitions','pr_items'
+        );
+      `);
+    } catch(e) { /* sqlite_sequence may not exist if table was never used */ }
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    res.json({ ok: true, message: 'All business data wiped. User accounts preserved.' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/change-password  — admin changes any user's password
+app.post('/api/admin/change-password', requireAuth, requireAdmin, (req, res) => {
+  const { userId, newPassword } = req.body || {};
+  if (!userId || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'userId and newPassword (min 6 chars) required' });
+  }
+  const user = db.prepare('SELECT id FROM users WHERE id=?').get(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const hash = bcrypt.hashSync(newPassword, 10);
+  db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(hash, userId);
+  res.json({ ok: true });
+});
+
+// POST /api/auth/change-password  — any logged-in user changes their own password
+app.post('/api/auth/change-password', requireAuth, (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'currentPassword and newPassword (min 6 chars) required' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id=?').get(req.session.userId);
+  if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+  db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(bcrypt.hashSync(newPassword, 10), user.id);
+  res.json({ ok: true });
+});
+
+// GET /api/admin/users  — list all users (admin only)
+app.get('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
+  const users = db.prepare('SELECT id, username, full_name, role, created_at FROM users ORDER BY id').all();
+  res.json(users);
+});
+
+// ── GLOBAL ERROR HANDLER ──────────────────────────────────────────────────────
+app.use((err, req, res, _next) => {
+  console.error('[Express Error]', err.stack || err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+process.on('uncaughtException', err => {
+  console.error('[Uncaught Exception]', err.stack || err.message);
+  // Give logger time to flush, then exit so Railway restarts the container
+  setTimeout(() => process.exit(1), 500);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Unhandled Rejection]', reason);
+});
+
+// Graceful shutdown — checkpoint WAL before exit
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received — checkpointing WAL and shutting down');
+  try { db.pragma('wal_checkpoint(TRUNCATE)'); db.close(); } catch(e) {}
+  process.exit(0);
+});
+
 app.listen(PORT, () => {
-  console.log(`\n  CPR Sales Tracker → http://localhost:${PORT}`);
-  console.log('  Admin login : admin  / cpr2026');
-  console.log('  Staff login : staff  / staff2026\n');
+  console.log(`\n  CPR Sales Tracker running on port ${PORT}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('  Default logins: admin / cpr2026  |  staff / staff2026');
+    console.log('  ⚠️  Change these passwords before going live!\n');
+  }
 });

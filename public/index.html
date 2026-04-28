@@ -361,6 +361,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
       <button class="nav-btn" data-tab="inventory">📦 Inventory</button>
       <button class="nav-btn" data-tab="purchase-orders">📋 Purchase Orders</button>
       <button class="nav-btn" data-tab="purchase-requisitions">📝 Requisitions</button>
+      <button class="nav-btn admin-only hidden" data-tab="admin" style="margin-left:auto;background:rgba(239,68,68,0.2);color:#fca5a5">⚙️ Admin</button>
     </nav>
     <div class="header-user">
       <span id="header-username"></span>
@@ -1128,6 +1129,99 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
       </div>
     </section>
 
+    <!-- ══ ADMIN ══════════════════════════════════════════════════════════════ -->
+    <section id="tab-admin" class="tab-content">
+      <div class="page-title">⚙️ Admin Panel</div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px">
+
+        <!-- Database Backup -->
+        <div class="card">
+          <div class="card-header" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-radius:8px 8px 0 0;padding:14px 18px">
+            <div style="font-size:15px;font-weight:700">💾 Database Backup</div>
+            <div style="font-size:12px;opacity:.85;margin-top:3px">Download a complete snapshot of all data</div>
+          </div>
+          <div class="card-body" style="padding:18px">
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5">
+              Downloads a clean <code>.db</code> file with every transaction, inventory item, lead and PO.
+              Store a copy in Google Drive or email it to yourself weekly.
+            </p>
+            <button class="btn btn-primary" onclick="adminBackup()">⬇ Download Backup Now</button>
+            <div id="backup-status" style="margin-top:10px;font-size:12px;color:var(--text-muted)"></div>
+          </div>
+        </div>
+
+        <!-- Change My Password -->
+        <div class="card">
+          <div class="card-header" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border-radius:8px 8px 0 0;padding:14px 18px">
+            <div style="font-size:15px;font-weight:700">🔑 Change My Password</div>
+            <div style="font-size:12px;opacity:.85;margin-top:3px">Update your own login password</div>
+          </div>
+          <div class="card-body" style="padding:18px">
+            <div class="form-group" style="margin-bottom:12px">
+              <label>Current Password</label>
+              <input type="password" id="pw-current" placeholder="Enter current password" autocomplete="current-password">
+            </div>
+            <div class="form-group" style="margin-bottom:12px">
+              <label>New Password</label>
+              <input type="password" id="pw-new" placeholder="Min 6 characters" autocomplete="new-password">
+            </div>
+            <div class="form-group" style="margin-bottom:16px">
+              <label>Confirm New Password</label>
+              <input type="password" id="pw-confirm" placeholder="Repeat new password" autocomplete="new-password">
+            </div>
+            <button class="btn btn-success" onclick="changeMyPassword()">Update Password</button>
+            <div id="pw-status" style="margin-top:10px;font-size:12px"></div>
+          </div>
+        </div>
+
+        <!-- User Management -->
+        <div class="card">
+          <div class="card-header" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border-radius:8px 8px 0 0;padding:14px 18px">
+            <div style="font-size:15px;font-weight:700">👥 User Management</div>
+            <div style="font-size:12px;opacity:.85;margin-top:3px">View users and reset passwords</div>
+          </div>
+          <div class="card-body" style="padding:18px">
+            <div id="admin-users-list" style="margin-bottom:14px">
+              <div style="color:var(--text-muted);font-size:13px">Loading…</div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:14px">
+              <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Reset a User's Password</div>
+              <div class="form-group" style="margin-bottom:8px">
+                <select id="admin-target-user" style="width:100%"></select>
+              </div>
+              <div class="form-group" style="margin-bottom:12px">
+                <input type="password" id="admin-new-pw" placeholder="New password (min 6 chars)" autocomplete="new-password">
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="adminResetUserPw()">Reset Password</button>
+              <div id="admin-pw-status" style="margin-top:8px;font-size:12px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Reset -->
+        <div class="card" style="border:2px solid #fca5a5">
+          <div class="card-header" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border-radius:6px 6px 0 0;padding:14px 18px">
+            <div style="font-size:15px;font-weight:700">⚠️ Reset Database</div>
+            <div style="font-size:12px;opacity:.85;margin-top:3px">Wipe all data — cannot be undone</div>
+          </div>
+          <div class="card-body" style="padding:18px">
+            <p style="font-size:13px;color:#dc2626;margin-bottom:16px;line-height:1.5;font-weight:600">
+              Permanently deletes ALL transactions, inventory, leads, cash records, POs and PRs.
+              User accounts are preserved. <strong>Download a backup first!</strong>
+            </p>
+            <div class="form-group" style="margin-bottom:12px">
+              <label style="font-size:12px">Type <code>RESET ALL DATA</code> to confirm</label>
+              <input type="text" id="reset-confirm-input" placeholder="RESET ALL DATA" style="font-family:monospace;letter-spacing:.5px">
+            </div>
+            <button class="btn btn-danger" onclick="adminResetDB()" style="width:100%">🗑 Wipe All Business Data</button>
+            <div id="reset-status" style="margin-top:10px;font-size:12px"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -1610,13 +1704,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
 <!-- ══ NEW PURCHASE ORDER MODAL ══════════════════════════════════════════════ -->
 <div id="po-modal" class="modal-overlay hidden">
-  <div class="modal-box" style="max-width:860px">
+  <div class="modal-box" style="max-width:min(1180px,96vw);width:96vw">
     <div class="modal-header">
       <h3 id="po-modal-title">New Purchase Order</h3>
       <button class="close-btn" onclick="closePOModal()">✕</button>
     </div>
-    <div class="modal-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+    <div class="modal-body" style="max-height:80vh;overflow-y:auto">
+
+      <!-- Order Header Fields -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
         <div class="form-group">
           <label>Supplier *</label>
           <input type="text" id="po-supplier" placeholder="Supplier name" required>
@@ -1626,7 +1722,7 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
           <input type="date" id="po-order-date">
         </div>
         <div class="form-group">
-          <label>Expected Delivery Date</label>
+          <label>Expected Delivery</label>
           <input type="date" id="po-expected-date">
         </div>
         <div class="form-group">
@@ -1636,26 +1732,39 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
             <option value="Sent">Sent</option>
           </select>
         </div>
-        <div class="form-group" style="grid-column:span 2">
+        <div class="form-group" style="grid-column:span 4">
           <label>Notes</label>
           <textarea id="po-notes" rows="2" placeholder="Order notes…"></textarea>
         </div>
       </div>
 
+      <!-- Line Items -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="section-title" style="margin-bottom:0">Line Items</div>
-        <button type="button" class="btn btn-outline btn-sm" onclick="addPOLineItem()">+ Add Item</button>
+        <div class="section-title" style="margin-bottom:0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">
+          📦 Line Items
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="addPOLineItem()">＋ Add Item</button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Item</th><th>Qty</th><th>Unit Cost</th><th class="text-right">Total</th><th></th></tr></thead>
-          <tbody id="po-line-items"></tbody>
-          <tfoot>
-            <tr class="tfoot"><td colspan="3">Order Total</td><td class="text-right" id="po-line-total">$0.00</td><td></td></tr>
-          </tfoot>
-        </table>
+
+      <!-- Column headers -->
+      <div style="display:grid;grid-template-columns:3fr 1.2fr 1fr 1fr 1fr 40px;gap:10px;padding:6px 12px;background:var(--bg-secondary);border-radius:6px;margin-bottom:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">
+        <span>Item / Description</span>
+        <span>Asset Type</span>
+        <span style="text-align:center">Qty</span>
+        <span style="text-align:center">Unit Cost ($)</span>
+        <span style="text-align:right">Row Total</span>
+        <span></span>
+      </div>
+
+      <div id="po-line-items" style="display:flex;flex-direction:column;gap:6px;min-height:80px"></div>
+
+      <!-- Order Total -->
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-top:14px;padding:12px 16px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0">
+        <span style="font-size:14px;font-weight:600;color:var(--text-muted)">Order Total</span>
+        <span style="font-size:22px;font-weight:800;color:#166534" id="po-line-total">$0.00</span>
       </div>
     </div>
+
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closePOModal()">Cancel</button>
       <button class="btn btn-success" onclick="savePO()">💾 Save Purchase Order</button>
@@ -1679,13 +1788,15 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
 <!-- ══ NEW REQUISITION MODAL ════════════════════════════════════════════════ -->
 <div id="pr-modal" class="modal-overlay hidden">
-  <div class="modal-box" style="max-width:760px">
+  <div class="modal-box" style="max-width:min(1180px,96vw);width:96vw">
     <div class="modal-header">
       <h3>New Purchase Requisition</h3>
       <button class="close-btn" onclick="closePRModal()">✕</button>
     </div>
-    <div class="modal-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+    <div class="modal-body" style="max-height:80vh;overflow-y:auto">
+
+      <!-- Requisition Header Fields -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
         <div class="form-group">
           <label>Priority</label>
           <select id="pr-priority">
@@ -1699,23 +1810,47 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
           <label>Needed By Date</label>
           <input type="date" id="pr-needed-by">
         </div>
-        <div class="form-group" style="grid-column:span 2">
-          <label>Notes</label>
+        <div class="form-group">
+          <label>Requested By</label>
+          <input type="text" id="pr-requested-by" placeholder="Name or department…">
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <!-- spacer -->
+        </div>
+        <div class="form-group" style="grid-column:span 4">
+          <label>Notes / Reason</label>
           <textarea id="pr-notes" rows="2" placeholder="Reason for requisition…"></textarea>
         </div>
       </div>
 
+      <!-- Line Items -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="section-title" style="margin-bottom:0">Requested Items</div>
-        <button type="button" class="btn btn-outline btn-sm" onclick="addPRLineItem()">+ Add Item</button>
+        <div class="section-title" style="margin-bottom:0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">
+          📋 Requested Items
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="addPRLineItem()">＋ Add Item</button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Item</th><th>Qty Needed</th><th>Est. Cost</th><th>Notes</th><th></th></tr></thead>
-          <tbody id="pr-line-items"></tbody>
-        </table>
+
+      <!-- Column headers -->
+      <div style="display:grid;grid-template-columns:3fr 1.2fr 1fr 1fr 1fr 40px;gap:10px;padding:6px 12px;background:var(--bg-secondary);border-radius:6px;margin-bottom:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">
+        <span>Item / Description</span>
+        <span>Asset Type</span>
+        <span style="text-align:center">Qty Needed</span>
+        <span style="text-align:center">Est. Unit Cost ($)</span>
+        <span style="text-align:right">Row Total</span>
+        <span></span>
+      </div>
+
+      <div id="pr-line-items" style="display:flex;flex-direction:column;gap:6px;min-height:80px"></div>
+
+      <!-- Requisition Total -->
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-top:14px;padding:12px 16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe">
+        <span style="font-size:14px;font-weight:600;color:var(--text-muted)">Estimated Total</span>
+        <span style="font-size:22px;font-weight:800;color:#1d4ed8" id="pr-line-total">$0.00</span>
       </div>
     </div>
+
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closePRModal()">Cancel</button>
       <button class="btn btn-success" onclick="savePR()">💾 Submit Requisition</button>
@@ -1934,6 +2069,10 @@ function showApp(user) {
   $('login-screen').style.display = 'none';
   $('app').classList.remove('hidden');
   $('header-username').textContent = user.fullName || user.username;
+  // Show admin-only nav items
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.classList.toggle('hidden', user.role !== 'admin');
+  });
 }
 
 $('login-form').onsubmit = async e => {
@@ -3640,30 +3779,58 @@ async function addPOLineItem() {
   poLineCounter++;
   const idx = poLineCounter;
   const activeItems = allInventoryItems.filter(i => i.status === 'Active');
-  const tbody = $('po-line-items');
-  const tr = document.createElement('tr');
-  tr.id = `po-line-${idx}`;
-  tr.dataset.itemId = '';
-  tr.innerHTML = `
-    <td>
-      <div class="item-search-wrap">
-        <input type="text" placeholder="Search item…" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px"
-          oninput="filterPOItem(this,${idx})" onfocus="showPODropdown(${idx})">
-        <div class="item-dropdown" id="po-dd-${idx}">
-          ${activeItems.map(i =>
-            `<div class="item-dropdown-row" onclick="selectPOItem(${idx},${i.id},'${(i.part_id+'').replace(/'/g,"\\'")} — ${(i.model+'').replace(/'/g,"\\'")}',${i.cost_price||0})">
-              <strong>${i.part_id}</strong> — ${i.model||''}
-              <small style="float:right">${fmt(i.cost_price)} cost</small>
-            </div>`).join('')}
-        </div>
+  const container = $('po-line-items');
+  const row = document.createElement('div');
+  row.id = `po-line-${idx}`;
+  row.dataset.itemId = '';
+  row.style.cssText = 'display:grid;grid-template-columns:3fr 1.2fr 1fr 1fr 1fr 40px;gap:10px;align-items:start;padding:10px 12px;background:#fff;border:1px solid var(--border);border-radius:8px';
+
+  row.innerHTML = `
+    <!-- Item search -->
+    <div class="item-search-wrap">
+      <input type="text" id="po-search-${idx}" placeholder="🔍 Search by Part ID, model, description…"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+        oninput="filterPOItem(this,${idx})" onfocus="showPODropdown(${idx})">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:3px;min-height:16px" id="po-item-info-${idx}"></div>
+      <div class="item-dropdown" id="po-dd-${idx}" style="min-width:420px">
+        ${activeItems.map(i => {
+          const label = `${i.part_id} — ${i.model||''}`;
+          const safe  = label.replace(/'/g,"\\'");
+          const info  = [i.asset_type, i.color, i.grade].filter(Boolean).join(' · ');
+          return `<div class="item-dropdown-row" onclick="selectPOItem(${idx},${i.id},'${safe}',${i.cost_price||0},'${info.replace(/'/g,"\\'")}')">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span><strong>${i.part_id}</strong> — ${i.model||''}</span>
+              <span style="color:var(--text-muted);font-size:11px">${fmt(i.cost_price||0)} cost &nbsp;|&nbsp; Stock: ${i.quantity??0}</span>
+            </div>
+            ${info?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${info}</div>`:''}
+          </div>`;
+        }).join('')}
       </div>
-    </td>
-    <td><input type="number" id="po-qty-${idx}" value="1" min="1" style="width:60px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px" oninput="recalcPOTotal()"></td>
-    <td><input type="number" id="po-cost-${idx}" value="0" min="0" step="0.01" style="width:80px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px" oninput="recalcPOTotal()"></td>
-    <td class="text-right" id="po-row-total-${idx}">$0.00</td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="removePOLine(${idx})">✕</button></td>
+    </div>
+    <!-- Asset type (auto-filled) -->
+    <div style="padding-top:2px">
+      <div style="font-size:12px;color:var(--text-muted);padding:8px 6px;min-height:36px;border:1px solid transparent" id="po-asset-${idx}">—</div>
+    </div>
+    <!-- Qty -->
+    <div>
+      <input type="number" id="po-qty-${idx}" value="1" min="1"
+        style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:center;font-weight:600"
+        oninput="recalcPOTotal()">
+    </div>
+    <!-- Unit Cost -->
+    <div>
+      <input type="number" id="po-cost-${idx}" value="0.00" min="0" step="0.01"
+        style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:right"
+        oninput="recalcPOTotal()">
+    </div>
+    <!-- Row Total -->
+    <div style="text-align:right;padding-top:10px;font-size:14px;font-weight:700;color:#166534" id="po-row-total-${idx}">$0.00</div>
+    <!-- Remove -->
+    <div style="padding-top:4px">
+      <button type="button" class="btn btn-danger btn-sm" onclick="removePOLine(${idx})" style="width:36px;height:36px;padding:0;font-size:16px;border-radius:6px">✕</button>
+    </div>
   `;
-  tbody.appendChild(tr);
+  container.appendChild(row);
 }
 
 function filterPOItem(input, idx) {
@@ -3679,27 +3846,33 @@ function showPODropdown(idx) {
   $(`po-dd-${idx}`).classList.add('open');
 }
 
-function selectPOItem(idx, itemId, label, cost) {
-  const tr = $(`po-line-${idx}`);
-  tr.dataset.itemId = itemId;
-  tr.querySelector('input[type="text"]').value = label;
+function selectPOItem(idx, itemId, label, cost, info) {
+  const row = $(`po-line-${idx}`);
+  row.dataset.itemId = itemId;
+  $(`po-search-${idx}`).value = label;
   $(`po-cost-${idx}`).value = cost.toFixed(2);
   $(`po-dd-${idx}`).classList.remove('open');
+  // Show asset/grade info below search
+  const infoEl = $(`po-item-info-${idx}`);
+  if (infoEl) infoEl.textContent = info || '';
+  // Populate asset type column
+  const assetEl = $(`po-asset-${idx}`);
+  if (assetEl) assetEl.textContent = info ? info.split(' · ')[0] : '—';
   recalcPOTotal();
 }
 
 function removePOLine(idx) {
-  const tr = $(`po-line-${idx}`);
-  if (tr) tr.remove();
+  const row = $(`po-line-${idx}`);
+  if (row) row.remove();
   recalcPOTotal();
 }
 
 function recalcPOTotal() {
   let total = 0;
-  document.querySelectorAll('#po-line-items tr').forEach(tr => {
-    const idx = tr.id.replace('po-line-','');
-    const qty  = parseFloat($(`po-qty-${idx}`)?.value) || 0;
-    const cost = parseFloat($(`po-cost-${idx}`)?.value) || 0;
+  document.querySelectorAll('#po-line-items [id^="po-line-"]').forEach(row => {
+    const idx = row.id.replace('po-line-','');
+    const qty      = parseFloat($(`po-qty-${idx}`)?.value)  || 0;
+    const cost     = parseFloat($(`po-cost-${idx}`)?.value) || 0;
     const rowTotal = qty * cost;
     const cell = $(`po-row-total-${idx}`);
     if (cell) cell.textContent = fmt(rowTotal);
@@ -3713,14 +3886,14 @@ async function savePO() {
   if (!supplier) { showToast('Supplier is required', 'error'); return; }
 
   const items = [];
-  document.querySelectorAll('#po-line-items tr').forEach(tr => {
-    const idx = tr.id.replace('po-line-','');
-    const itemId = tr.dataset.itemId;
+  document.querySelectorAll('#po-line-items [id^="po-line-"]').forEach(row => {
+    const idx    = row.id.replace('po-line-','');
+    const itemId = row.dataset.itemId;
     if (!itemId) return;
     items.push({
-      item_id: parseInt(itemId),
-      quantity_ordered: parseInt($(`po-qty-${idx}`)?.value) || 1,
-      unit_cost: parseFloat($(`po-cost-${idx}`)?.value) || 0
+      item_id:          parseInt(itemId),
+      quantity_ordered: parseInt($(`po-qty-${idx}`)?.value)  || 1,
+      unit_cost:        parseFloat($(`po-cost-${idx}`)?.value) || 0
     });
   });
   if (!items.length) { showToast('Add at least one line item', 'error'); return; }
@@ -3873,8 +4046,10 @@ async function loadPurchaseRequisitions() {
 function openNewPRModal() {
   $('pr-priority').value = 'Normal';
   $('pr-needed-by').value = '';
+  $('pr-requested-by').value = '';
   $('pr-notes').value = '';
   $('pr-line-items').innerHTML = '';
+  $('pr-line-total').textContent = '$0.00';
   prLineCounter = 0;
   $('pr-modal').classList.remove('hidden');
   addPRLineItem();
@@ -3889,30 +4064,58 @@ async function addPRLineItem() {
   prLineCounter++;
   const idx = prLineCounter;
   const activeItems = allInventoryItems.filter(i => i.status === 'Active');
-  const tbody = $('pr-line-items');
-  const tr = document.createElement('tr');
-  tr.id = `pr-line-${idx}`;
-  tr.dataset.itemId = '';
-  tr.innerHTML = `
-    <td>
-      <div class="item-search-wrap">
-        <input type="text" placeholder="Search item…" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px"
-          oninput="filterPRItem(this,${idx})" onfocus="showPRDropdown(${idx})">
-        <div class="item-dropdown" id="pr-dd-${idx}">
-          ${activeItems.map(i =>
-            `<div class="item-dropdown-row" onclick="selectPRItem(${idx},${i.id},'${(i.part_id+'').replace(/'/g,"\\'")} — ${(i.model+'').replace(/'/g,"\\'")}',${i.cost_price||0})">
-              <strong>${i.part_id}</strong> — ${i.model||''}
-              <small style="float:right">${fmt(i.cost_price)}</small>
-            </div>`).join('')}
-        </div>
+  const container = $('pr-line-items');
+  const row = document.createElement('div');
+  row.id = `pr-line-${idx}`;
+  row.dataset.itemId = '';
+  row.style.cssText = 'display:grid;grid-template-columns:3fr 1.2fr 1fr 1fr 1fr 40px;gap:10px;align-items:start;padding:10px 12px;background:#fff;border:1px solid var(--border);border-radius:8px';
+
+  row.innerHTML = `
+    <!-- Item search -->
+    <div class="item-search-wrap">
+      <input type="text" id="pr-search-${idx}" placeholder="🔍 Search by Part ID, model, description…"
+        style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+        oninput="filterPRItem(this,${idx})" onfocus="showPRDropdown(${idx})">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:3px;min-height:16px" id="pr-item-info-${idx}"></div>
+      <div class="item-dropdown" id="pr-dd-${idx}" style="min-width:420px">
+        ${activeItems.map(i => {
+          const label = `${i.part_id} — ${i.model||''}`;
+          const safe  = label.replace(/'/g,"\\'");
+          const info  = [i.asset_type, i.color, i.grade].filter(Boolean).join(' · ');
+          return `<div class="item-dropdown-row" onclick="selectPRItem(${idx},${i.id},'${safe}',${i.cost_price||0},'${info.replace(/'/g,"\\'")}')">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span><strong>${i.part_id}</strong> — ${i.model||''}</span>
+              <span style="color:var(--text-muted);font-size:11px">${fmt(i.cost_price||0)} est. &nbsp;|&nbsp; Stock: ${i.quantity??0}</span>
+            </div>
+            ${info?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${info}</div>`:''}
+          </div>`;
+        }).join('')}
       </div>
-    </td>
-    <td><input type="number" id="pr-qty-${idx}" value="1" min="1" style="width:60px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px"></td>
-    <td><input type="number" id="pr-est-${idx}" value="0" min="0" step="0.01" style="width:80px;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px"></td>
-    <td><input type="text" id="pr-note-${idx}" placeholder="Note…" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:4px;font-size:12px"></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="removePRLine(${idx})">✕</button></td>
+    </div>
+    <!-- Asset type (auto-filled) -->
+    <div style="padding-top:2px">
+      <div style="font-size:12px;color:var(--text-muted);padding:8px 6px;min-height:36px;border:1px solid transparent" id="pr-asset-${idx}">—</div>
+    </div>
+    <!-- Qty Needed -->
+    <div>
+      <input type="number" id="pr-qty-${idx}" value="1" min="1"
+        style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:center;font-weight:600"
+        oninput="recalcPRTotal()">
+    </div>
+    <!-- Est. Unit Cost -->
+    <div>
+      <input type="number" id="pr-est-${idx}" value="0.00" min="0" step="0.01"
+        style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;text-align:right"
+        oninput="recalcPRTotal()">
+    </div>
+    <!-- Row Total -->
+    <div style="text-align:right;padding-top:10px;font-size:14px;font-weight:700;color:#1d4ed8" id="pr-row-total-${idx}">$0.00</div>
+    <!-- Remove -->
+    <div style="padding-top:4px">
+      <button type="button" class="btn btn-danger btn-sm" onclick="removePRLine(${idx})" style="width:36px;height:36px;padding:0;font-size:16px;border-radius:6px">✕</button>
+    </div>
   `;
-  tbody.appendChild(tr);
+  container.appendChild(row);
 }
 
 function filterPRItem(input, idx) {
@@ -3928,38 +4131,61 @@ function showPRDropdown(idx) {
   $(`pr-dd-${idx}`).classList.add('open');
 }
 
-function selectPRItem(idx, itemId, label, cost) {
-  const tr = $(`pr-line-${idx}`);
-  tr.dataset.itemId = itemId;
-  tr.querySelector('input[type="text"]').value = label;
+function selectPRItem(idx, itemId, label, cost, info) {
+  const row = $(`pr-line-${idx}`);
+  row.dataset.itemId = itemId;
+  $(`pr-search-${idx}`).value = label;
   $(`pr-est-${idx}`).value = cost.toFixed(2);
   $(`pr-dd-${idx}`).classList.remove('open');
+  // Show asset/grade info below search
+  const infoEl = $(`pr-item-info-${idx}`);
+  if (infoEl) infoEl.textContent = info || '';
+  // Populate asset type column
+  const assetEl = $(`pr-asset-${idx}`);
+  if (assetEl) assetEl.textContent = info ? info.split(' · ')[0] : '—';
+  recalcPRTotal();
 }
 
 function removePRLine(idx) {
-  const tr = $(`pr-line-${idx}`);
-  if (tr) tr.remove();
+  const row = $(`pr-line-${idx}`);
+  if (row) row.remove();
+  recalcPRTotal();
+}
+
+function recalcPRTotal() {
+  let total = 0;
+  document.querySelectorAll('#pr-line-items [id^="pr-line-"]').forEach(row => {
+    const idx = row.id.replace('pr-line-','');
+    const qty      = parseFloat($(`pr-qty-${idx}`)?.value)  || 0;
+    const cost     = parseFloat($(`pr-est-${idx}`)?.value)  || 0;
+    const rowTotal = qty * cost;
+    const cell = $(`pr-row-total-${idx}`);
+    if (cell) cell.textContent = fmt(rowTotal);
+    total += rowTotal;
+  });
+  $('pr-line-total').textContent = fmt(total);
 }
 
 async function savePR() {
   const items = [];
-  document.querySelectorAll('#pr-line-items tr').forEach(tr => {
-    const idx = tr.id.replace('pr-line-','');
-    const itemId = tr.dataset.itemId;
+  document.querySelectorAll('#pr-line-items [id^="pr-line-"]').forEach(row => {
+    const idx = row.id.replace('pr-line-','');
+    const itemId = row.dataset.itemId;
     if (!itemId) return;
     items.push({
       item_id: parseInt(itemId),
       quantity: parseInt($(`pr-qty-${idx}`)?.value) || 1,
       estimated_cost: parseFloat($(`pr-est-${idx}`)?.value) || 0,
-      notes: $(`pr-note-${idx}`)?.value.trim() || null
+      notes: null
     });
   });
   if (!items.length) { showToast('Add at least one item', 'error'); return; }
 
+  const reqBy = $('pr-requested-by').value.trim();
   const body = {
     priority: $('pr-priority').value,
     needed_by_date: $('pr-needed-by').value || null,
-    notes: $('pr-notes').value.trim() || null,
+    notes: ($('pr-notes').value.trim() + (reqBy ? ` [Requested by: ${reqBy}]` : '')) || null,
     items
   };
 
@@ -4038,6 +4264,110 @@ async function deletePR(id) {
 $('pr-modal').addEventListener('click', e => { if (e.target === $('pr-modal')) closePRModal(); });
 $('item-modal').addEventListener('click', e => { if (e.target === $('item-modal')) closeItemModal(); });
 $('adjust-modal').addEventListener('click', e => { if (e.target === $('adjust-modal')) closeAdjustModal(); });
+
+// ══ ADMIN FUNCTIONS ══════════════════════════════════════════════════════════
+
+async function loadAdminUsers() {
+  const users = await api('GET', '/api/admin/users');
+  if (!users) return;
+  // Render user list
+  $('admin-users-list').innerHTML = users.map(u => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span style="font-weight:600;font-size:13px">${u.username}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${u.full_name||''}</span>
+      </div>
+      <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${u.role==='admin'?'#fef3c7':'#f0fdf4'};color:${u.role==='admin'?'#92400e':'#166534'};font-weight:600">
+        ${u.role}
+      </span>
+    </div>`).join('');
+  // Populate reset-pw dropdown
+  const sel = $('admin-target-user');
+  sel.innerHTML = users.map(u => `<option value="${u.id}">${u.username} — ${u.full_name||u.role}</option>`).join('');
+}
+
+async function adminBackup() {
+  const status = $('backup-status');
+  status.textContent = '⏳ Preparing backup…';
+  try {
+    const res = await fetch('/api/admin/backup', { credentials: 'same-origin' });
+    if (!res.ok) { status.textContent = '❌ Backup failed: ' + (await res.json()).error; return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const date = new Date().toISOString().slice(0,10);
+    a.href     = url;
+    a.download = `cpr_backup_${date}.db`;
+    a.click();
+    URL.revokeObjectURL(url);
+    status.textContent = `✅ Backup downloaded: cpr_backup_${date}.db`;
+  } catch(e) {
+    status.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+async function changeMyPassword() {
+  const cur  = $('pw-current').value;
+  const nw   = $('pw-new').value;
+  const conf = $('pw-confirm').value;
+  const st   = $('pw-status');
+  if (!cur || !nw || !conf) { st.style.color='#dc2626'; st.textContent='Fill in all fields.'; return; }
+  if (nw !== conf) { st.style.color='#dc2626'; st.textContent='New passwords do not match.'; return; }
+  if (nw.length < 6) { st.style.color='#dc2626'; st.textContent='Password must be at least 6 characters.'; return; }
+  const res = await api('POST', '/api/auth/change-password', { currentPassword: cur, newPassword: nw });
+  if (res?.ok) {
+    st.style.color = '#059669';
+    st.textContent = '✅ Password updated successfully.';
+    $('pw-current').value = ''; $('pw-new').value = ''; $('pw-confirm').value = '';
+  } else {
+    st.style.color = '#dc2626';
+    st.textContent = '❌ ' + (res?.error || 'Error updating password');
+  }
+}
+
+async function adminResetUserPw() {
+  const userId = $('admin-target-user').value;
+  const pw     = $('admin-new-pw').value;
+  const st     = $('admin-pw-status');
+  if (!pw || pw.length < 6) { st.style.color='#dc2626'; st.textContent='Password must be at least 6 characters.'; return; }
+  const res = await api('POST', '/api/admin/change-password', { userId: parseInt(userId), newPassword: pw });
+  if (res?.ok) {
+    st.style.color = '#059669';
+    st.textContent = '✅ Password reset.';
+    $('admin-new-pw').value = '';
+  } else {
+    st.style.color = '#dc2626';
+    st.textContent = '❌ ' + (res?.error || 'Error');
+  }
+}
+
+async function adminResetDB() {
+  const input = $('reset-confirm-input').value.trim();
+  const st    = $('reset-status');
+  if (input !== 'RESET ALL DATA') {
+    st.style.color = '#dc2626';
+    st.textContent = '❌ Type exactly: RESET ALL DATA';
+    return;
+  }
+  if (!confirm('⚠️ FINAL WARNING: This will permanently delete all transactions, inventory, leads and POs.\n\nAre you absolutely sure? This cannot be undone.')) return;
+  st.textContent = '⏳ Resetting…';
+  const res = await api('POST', '/api/admin/reset', { confirm: 'RESET ALL DATA' });
+  if (res?.ok) {
+    st.style.color = '#059669';
+    st.textContent = '✅ ' + res.message;
+    $('reset-confirm-input').value = '';
+    // Reload dashboard data
+    setTimeout(() => { loadDashboard(); }, 1000);
+  } else {
+    st.style.color = '#dc2626';
+    st.textContent = '❌ ' + (res?.error || 'Error');
+  }
+}
+
+// Load admin data when admin tab opens
+document.querySelector('[data-tab="admin"]')?.addEventListener('click', () => {
+  if (currentUser?.role === 'admin') loadAdminUsers();
+});
 
 // ══ STARTUP ════════════════════════════════════════════════════════════════════
 populateModelSelects();
