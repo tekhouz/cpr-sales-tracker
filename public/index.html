@@ -361,7 +361,8 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
       <button class="nav-btn" data-tab="inventory">📦 Inventory</button>
       <button class="nav-btn" data-tab="purchase-orders">📋 Purchase Orders</button>
       <button class="nav-btn" data-tab="purchase-requisitions">📝 Requisitions</button>
-      <button class="nav-btn admin-only hidden" data-tab="admin" style="margin-left:auto;background:rgba(239,68,68,0.2);color:#fca5a5">⚙️ Admin</button>
+      <button class="nav-btn admin-only hidden" data-tab="settings">🔧 Settings</button>
+      <button class="nav-btn admin-only hidden" data-tab="admin" style="background:rgba(239,68,68,0.2);color:#fca5a5">⚙️ Admin</button>
     </nav>
     <div class="header-user">
       <span id="header-username"></span>
@@ -1126,6 +1127,30 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
             </table>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ══ SETTINGS ══════════════════════════════════════════════════════════ -->
+    <section id="tab-settings" class="tab-content">
+      <div class="page-title">🔧 Settings — Dropdown Lists</div>
+      <div style="display:flex;gap:20px;align-items:flex-start">
+
+        <!-- Sidebar -->
+        <div style="width:210px;flex-shrink:0">
+          <div class="card" style="padding:0;overflow:hidden" id="settings-sidebar">
+            <div style="padding:14px;color:var(--text-muted);font-size:13px">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Main panel -->
+        <div style="flex:1;min-width:0">
+          <div class="card" id="settings-main">
+            <div class="card-body" style="color:var(--text-muted);font-size:14px;padding:32px;text-align:center">
+              ← Select a list from the left to manage its options
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -2119,6 +2144,8 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 // ══ INIT ═════════════════════════════════════════════════════════════════════
 async function initApp() {
   setupDashboardPeriodButtons();
+  // Load dynamic dropdown options first (categories, colors, grades, payment methods, etc.)
+  await loadAppSettings();
   loadDashboard();
 }
 
@@ -4264,6 +4291,276 @@ async function deletePR(id) {
 $('pr-modal').addEventListener('click', e => { if (e.target === $('pr-modal')) closePRModal(); });
 $('item-modal').addEventListener('click', e => { if (e.target === $('item-modal')) closeItemModal(); });
 $('adjust-modal').addEventListener('click', e => { if (e.target === $('adjust-modal')) closeAdjustModal(); });
+
+// ══ APP SETTINGS (dynamic dropdowns) ═════════════════════════════════════════
+let appSettingsCache = {};   // group_name → option[]
+
+async function loadAppSettings() {
+  const opts = await api('GET', '/api/settings/options') || [];
+  appSettingsCache = {};
+  for (const o of opts) {
+    if (!appSettingsCache[o.group_name]) appSettingsCache[o.group_name] = [];
+    appSettingsCache[o.group_name].push(o);
+  }
+  populateSettingsDropdowns();
+}
+
+function populateSettingsDropdowns() {
+  const g = appSettingsCache;
+
+  function fill(id, items, defaultOpt = '') {
+    const el = $(id);
+    if (!el) return;
+    const prev = el.value;
+    el.innerHTML = defaultOpt + items.map(o =>
+      `<option value="${esc(o.value)}">${esc(o.label || o.value)}</option>`
+    ).join('');
+    if (prev) el.value = prev;
+  }
+
+  const cats   = g.category       || [];
+  const pays   = g.payment_method  || [];
+  const colors = g.color           || [];
+  const grades = g.grade           || [];
+  const stypes = g.screen_type     || [];
+  const lsrcs  = g.lead_source     || [];
+
+  // Categories
+  fill('f-category',    cats, '<option value="">Select category</option>');
+  fill('e-category',    cats, '<option value="">Select category</option>');
+  fill('txn-category',  cats, '<option value="">All</option>');
+  fill('lead-cat-filter', cats, '<option value="">All Categories</option>');
+  fill('l-category',    cats, '<option value="">Select category</option>');
+
+  // Payment methods
+  fill('f-payment',    pays, '<option value="">Select method</option>');
+  fill('e-payment',    pays, '');
+  fill('txn-payment',  pays, '<option value="">All</option>');
+
+  // Colors
+  fill('f-color',  colors, '<option value="">Any color</option>');
+  fill('it-color', colors, '<option value="">Select color</option>');
+
+  // Grades
+  fill('f-grade',  grades, '<option value="">Any grade</option>');
+  fill('it-grade', grades, '<option value="">Select grade</option>');
+
+  // Screen types
+  fill('f-screen-type', stypes, '<option value="">— None —</option>');
+  fill('e-screen-type', stypes, '<option value="">— None —</option>');
+
+  // Lead sources
+  fill('l-source',          lsrcs, '<option value="">Select source</option>');
+  fill('lead-source-filter', lsrcs, '<option value="">All Sources</option>');
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══ SETTINGS TAB ═════════════════════════════════════════════════════════════
+
+const SETTINGS_GROUPS = [
+  { key:'category',       icon:'📋', label:'Transaction Categories', desc:'Repair, Device Sale, Cases, etc.' },
+  { key:'payment_method', icon:'💳', label:'Payment Methods',        desc:'Cash, Square, Bank Zelle, etc.' },
+  { key:'color',          icon:'🎨', label:'Colors',                 desc:'Device and part color options' },
+  { key:'grade',          icon:'⭐', label:'Grades / Condition',     desc:'New, Open Box, A, B+, etc.' },
+  { key:'screen_type',    icon:'🖥', label:'Screen Types',           desc:'LCD, OEM, OLED, Back Glass, etc.' },
+  { key:'asset_type',     icon:'📱', label:'Asset Types',            desc:'iPhone Parts, Samsung Devices, etc.' },
+  { key:'model',          icon:'🔧', label:'Models',                 desc:'Device models per asset type' },
+  { key:'part_type',      icon:'🔩', label:'Part Types',             desc:'Battery, Screen, Charging Port, etc.' },
+  { key:'ram',            icon:'💾', label:'RAM Options',            desc:'4GB, 8GB, 16GB, etc.' },
+  { key:'storage',        icon:'💽', label:'Storage Options',        desc:'64GB, 128GB, 256GB, 1TB, etc.' },
+  { key:'lead_source',    icon:'📣', label:'Lead Sources',           desc:'Walk-in, Google, Facebook, etc.' },
+];
+
+let _settingsAllOpts = {};   // group → all options (including inactive)
+let _settingsCurGroup = null;
+let _settingsModelParent = null;
+
+async function loadSettingsTab() {
+  const opts = await api('GET', '/api/settings/options?all=1') || [];
+  _settingsAllOpts = {};
+  for (const o of opts) {
+    if (!_settingsAllOpts[o.group_name]) _settingsAllOpts[o.group_name] = [];
+    _settingsAllOpts[o.group_name].push(o);
+  }
+  renderSettingsSidebar();
+  if (_settingsCurGroup) renderSettingsGroup(_settingsCurGroup);
+  else {
+    $('settings-main').innerHTML =
+      '<div class="card-body" style="color:var(--text-muted);font-size:14px;padding:32px;text-align:center">← Select a list from the left to manage its options</div>';
+  }
+}
+
+function renderSettingsSidebar() {
+  $('settings-sidebar').innerHTML = SETTINGS_GROUPS.map(g => {
+    const opts   = _settingsAllOpts[g.key] || [];
+    const active = opts.filter(o => o.is_active).length;
+    const sel    = _settingsCurGroup === g.key;
+    return `<div onclick="renderSettingsGroup('${g.key}')"
+      style="padding:11px 16px;cursor:pointer;border-bottom:1px solid var(--border);
+             background:${sel ? 'var(--primary)' : '#fff'};
+             color:${sel ? '#fff' : 'inherit'};transition:background .15s">
+        <div style="font-size:13px;font-weight:600">${g.icon} ${g.label}</div>
+        <div style="font-size:11px;opacity:.65;margin-top:2px">${active} active option${active!==1?'s':''}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderSettingsGroup(groupKey) {
+  _settingsCurGroup = groupKey;
+  renderSettingsSidebar();
+  const g       = SETTINGS_GROUPS.find(x => x.key === groupKey);
+  const allOpts = _settingsAllOpts[groupKey] || [];
+  const isModel    = groupKey === 'model';
+  const isPartType = groupKey === 'part_type';
+  const hasLabel   = isPartType || groupKey === 'grade';
+
+  // For models: filter by parent asset type
+  const assetTypes = isModel ? (_settingsAllOpts['asset_type'] || []).filter(o => o.is_active) : [];
+  if (isModel && !_settingsModelParent && assetTypes.length) _settingsModelParent = assetTypes[0].value;
+  const visibleOpts = isModel ? allOpts.filter(o => o.parent_value === _settingsModelParent) : allOpts;
+
+  $('settings-main').innerHTML = `
+    <div style="padding:20px">
+      <div style="margin-bottom:18px">
+        <div style="font-size:16px;font-weight:700">${g.icon} ${g.label}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:3px">${g.desc}</div>
+      </div>
+
+      ${isModel ? `
+        <div class="form-group" style="margin-bottom:14px">
+          <label style="font-size:12px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;color:var(--text-muted)">Asset Type</label>
+          <select onchange="_settingsModelParent=this.value;renderSettingsGroup('model')" style="width:100%;max-width:360px;margin-top:6px">
+            ${assetTypes.map(at => `<option value="${esc(at.value)}" ${at.value===_settingsModelParent?'selected':''}>${esc(at.value)}</option>`).join('')}
+          </select>
+        </div>` : ''}
+
+      <!-- Add form -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:${hasLabel?1:2}">
+          <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px">
+            ${isPartType ? 'Code (e.g. BTRY)' : 'Value'}
+          </label>
+          <input type="text" id="s-add-val" placeholder="${isPartType ? 'BTRY' : 'New option…'}"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-top:4px">
+        </div>
+        ${hasLabel ? `
+        <div style="flex:2">
+          <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px">
+            ${isPartType ? 'Label (e.g. Battery)' : 'Display Label (optional)'}
+          </label>
+          <input type="text" id="s-add-lbl" placeholder="${isPartType ? 'Battery' : 'e.g. A — Excellent'}"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-top:4px">
+        </div>` : ''}
+        <button class="btn btn-primary" onclick="settingsAdd('${groupKey}')" style="padding:8px 16px;white-space:nowrap">＋ Add</button>
+      </div>
+
+      <!-- Column headers -->
+      <div style="display:grid;grid-template-columns:${hasLabel?'1fr 1fr':'1fr'} 80px 64px;gap:0;
+                  padding:7px 14px;background:var(--bg-secondary);border-radius:6px 6px 0 0;
+                  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">
+        <span>${isPartType ? 'Code' : 'Value'}</span>
+        ${hasLabel ? '<span>Label / Display</span>' : ''}
+        <span style="text-align:center">Active</span>
+        <span></span>
+      </div>
+
+      <!-- Options list -->
+      <div id="s-opts-list" style="border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;overflow:hidden">
+        ${visibleOpts.length === 0
+          ? '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px">No options yet — add one above</div>'
+          : visibleOpts.map(o => settingsRow(o, hasLabel)).join('')}
+      </div>
+    </div>`;
+}
+
+function settingsRow(opt, hasLabel) {
+  const dim = opt.is_active ? '' : 'opacity:.45;';
+  return `
+    <div id="s-row-${opt.id}" style="display:grid;grid-template-columns:${hasLabel?'1fr 1fr':'1fr'} 80px 64px;
+          gap:0;padding:10px 14px;border-top:1px solid var(--border);align-items:center;${dim}background:#fff">
+      <div>
+        <span id="s-val-${opt.id}" class="s-editable" data-id="${opt.id}" data-field="value"
+              style="font-size:13px;font-weight:500;cursor:text;padding:2px 4px;border-radius:3px"
+              title="Click to edit" onclick="settingsStartEdit(${opt.id},'value')">
+          ${esc(opt.value)}
+        </span>
+      </div>
+      ${hasLabel ? `<div>
+        <span id="s-lbl-${opt.id}" class="s-editable" data-id="${opt.id}" data-field="label"
+              style="font-size:13px;color:var(--text-muted);cursor:text;padding:2px 4px;border-radius:3px"
+              title="Click to edit" onclick="settingsStartEdit(${opt.id},'label')">
+          ${esc(opt.label || '—')}
+        </span>
+      </div>` : ''}
+      <div style="text-align:center">
+        <button onclick="settingsToggle(${opt.id},${opt.is_active})"
+          style="width:40px;height:22px;border-radius:11px;border:none;cursor:pointer;position:relative;
+                 background:${opt.is_active ? '#10b981' : '#d1d5db'};transition:background .2s">
+          <div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2px;
+                      ${opt.is_active ? 'right:2px' : 'left:2px'};transition:all .2s"></div>
+        </button>
+      </div>
+      <div style="text-align:right">
+        <button onclick="settingsDelete(${opt.id})" title="Delete"
+          style="width:28px;height:28px;border-radius:5px;border:1px solid #fca5a5;background:#fff5f5;
+                 cursor:pointer;color:#dc2626;font-size:13px">🗑</button>
+      </div>
+    </div>`;
+}
+
+function settingsStartEdit(id, field) {
+  const el = $(`s-${field==='value'?'val':'lbl'}-${id}`);
+  if (!el) return;
+  const cur = el.textContent.trim();
+  el.outerHTML = `<input id="s-${field==='value'?'val':'lbl'}-${id}" type="text"
+    value="${esc(cur === '—' ? '' : cur)}"
+    style="font-size:13px;padding:4px 6px;border:1px solid var(--primary);border-radius:4px;width:95%"
+    onblur="settingsFinishEdit(${id},'${field}',this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')loadSettingsTab()">`;
+  document.getElementById(`s-${field==='value'?'val':'lbl'}-${id}`)?.focus();
+}
+
+async function settingsFinishEdit(id, field, newVal) {
+  const body = {}; body[field] = newVal.trim();
+  await api('PUT', `/api/settings/options/${id}`, body);
+  await Promise.all([loadSettingsTab(), loadAppSettings(), (invMeta=null, loadInvMeta())]);
+}
+
+async function settingsAdd(groupKey) {
+  const value  = $('s-add-val')?.value.trim();
+  const label  = $('s-add-lbl')?.value.trim() || null;
+  const parent = groupKey === 'model' ? _settingsModelParent : null;
+  if (!value) { showToast('Enter a value', 'error'); return; }
+  const res = await api('POST', '/api/settings/options', { group_name: groupKey, value, label, parent_value: parent });
+  if (res?.id) {
+    showToast('✅ Option added');
+    if ($('s-add-val')) $('s-add-val').value = '';
+    if ($('s-add-lbl')) $('s-add-lbl').value = '';
+    await Promise.all([loadSettingsTab(), loadAppSettings(), (invMeta=null, loadInvMeta())]);
+  } else showToast(res?.error || 'Error', 'error');
+}
+
+async function settingsToggle(id, cur) {
+  await api('PUT', `/api/settings/options/${id}`, { is_active: cur ? 0 : 1 });
+  await Promise.all([loadSettingsTab(), loadAppSettings(), (invMeta=null, loadInvMeta())]);
+}
+
+async function settingsDelete(id) {
+  if (!confirm('Delete this option permanently?')) return;
+  const res = await api('DELETE', `/api/settings/options/${id}`);
+  if (res?.ok) {
+    showToast('Deleted');
+    await Promise.all([loadSettingsTab(), loadAppSettings(), (invMeta=null, loadInvMeta())]);
+  } else showToast(res?.error || 'Error', 'error');
+}
+
+// Load settings tab when clicked
+document.querySelector('[data-tab="settings"]')?.addEventListener('click', () => {
+  if (currentUser?.role === 'admin') loadSettingsTab();
+});
 
 // ══ ADMIN FUNCTIONS ══════════════════════════════════════════════════════════
 

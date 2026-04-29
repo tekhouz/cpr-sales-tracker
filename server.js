@@ -199,6 +199,63 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_batch_item ON inventory_batches(item_id, created_at);
 `);
 
+// ── LOOKUP OPTIONS TABLE ──────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS lookup_options (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_name   TEXT    NOT NULL,
+    value        TEXT    NOT NULL,
+    label        TEXT,
+    parent_value TEXT    DEFAULT NULL,
+    sort_order   INTEGER DEFAULT 0,
+    is_active    INTEGER DEFAULT 1,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_lookup_unique ON lookup_options(group_name, value, COALESCE(parent_value,''));
+  CREATE INDEX       IF NOT EXISTS idx_lookup_group   ON lookup_options(group_name, is_active);
+`);
+
+// Seed lookup_options on first run from hardcoded constants
+const _lookupCount = db.prepare('SELECT COUNT(*) as c FROM lookup_options').get();
+if (_lookupCount.c === 0) {
+  const _ins = db.prepare(
+    `INSERT OR IGNORE INTO lookup_options (group_name, value, label, parent_value, sort_order) VALUES (?,?,?,?,?)`
+  );
+  const _seedGroup = db.transaction((gName, items) => {
+    items.forEach((item, i) => {
+      if (typeof item === 'string') _ins.run(gName, item, null, null, i);
+      else _ins.run(gName, item.value, item.label || null, item.parent || null, i);
+    });
+  });
+
+  _seedGroup('category',       ['Repair','Accessories','Device Sale','Cases','Privacy Glass','Pre Order','Other']);
+  _seedGroup('payment_method', ['Cash','Square Mobile - Cash','Square Mobile','Square Console','RepairQ','Bank Zelle','PayPal','Other']);
+  _seedGroup('color',          ['Black','White','Silver','Space Gray','Gold','Rose Gold','Midnight','Starlight','Blue','Sky Blue','Storm Blue','Ultramarine','Purple','Lavender','Pink','Red (PRODUCT Red)','Yellow','Orange','Green','Teal','Coral','Moonbeam','Space Black','Natural Titanium','Blue Titanium','White Titanium','Black Titanium','Desert Titanium','Other']);
+  _seedGroup('grade',          [
+    {value:'New',label:'New'},{value:'Open Box',label:'Open Box'},
+    {value:'New Third Party',label:'New Third Party'},{value:'New OEM',label:'New OEM'},
+    {value:'A',label:'A — Excellent'},{value:'B+',label:'B+ — Very Good'},
+    {value:'B',label:'B — Good'},{value:'C',label:'C — Fair'},{value:'D',label:'D — Non Working'},
+  ]);
+  _seedGroup('screen_type',    ['LCD','OEM','Soft OLED','Hard OLED','Back Glass','Refurb Screen','iPad Digitizer','Other']);
+  _seedGroup('ram',            ['2GB','3GB','4GB','6GB','8GB','12GB','16GB','24GB','32GB','64GB','128GB']);
+  _seedGroup('storage',        ['16GB','32GB','64GB','128GB','256GB','512GB','1TB','2TB','4TB']);
+  _seedGroup('lead_source',    ['Walk-in','Phone Call','Website','Google Search','Yelp','Facebook','Instagram','Referral','T-Mobile Referral','AT&T Referral','Xfinity Referral','Other']);
+
+  // Asset types from DEVICE_MODELS
+  Object.keys(DEVICE_MODELS).forEach((at, i) => _ins.run('asset_type', at, null, null, i));
+
+  // Models (with parent = asset type)
+  Object.entries(DEVICE_MODELS).forEach(([at, models]) => {
+    models.forEach((m, i) => _ins.run('model', m, null, at, i));
+  });
+
+  // Part types (value = code, label = display)
+  Object.entries(PART_TYPES).forEach(([code, label], i) => _ins.run('part_type', code, label, null, i));
+
+  console.log('  ✅ Lookup options seeded');
+}
+
 // ── FIFO HELPER ───────────────────────────────────────────────────────────────
 // Returns { unitCost, totalCost } using oldest batches first.
 // Deducts batch quantities in-place when deduct=true.
@@ -914,11 +971,27 @@ app.delete('/api/leads/:id', requireAuth, (req, res) => {
 
 // ── INVENTORY ────────────────────────────────────────────────────────────────
 
-// GET /api/inventory/items/meta — asset types, part types, models for dropdowns
+// GET /api/inventory/items/meta — asset types, part types, models (now from lookup_options DB)
 app.get('/api/inventory/items/meta', requireAuth, (req, res) => {
-  const assetTypes = Object.keys(DEVICE_MODELS);
-  const partTypes = Object.entries(PART_TYPES).map(([code, label]) => ({ code, label }));
-  res.json({ assetTypes, partTypes, deviceModels: DEVICE_MODELS });
+  const assetTypes = db.prepare(
+    `SELECT value FROM lookup_options WHERE group_name='asset_type' AND is_active=1 ORDER BY sort_order, value`
+  ).all().map(r => r.value);
+
+  const modelRows = db.prepare(
+    `SELECT value, parent_value FROM lookup_options WHERE group_name='model' AND is_active=1 ORDER BY sort_order, value`
+  ).all();
+
+  const partTypes = db.prepare(
+    `SELECT value as code, COALESCE(label,value) as label FROM lookup_options WHERE group_name='part_type' AND is_active=1 ORDER BY sort_order, value`
+  ).all();
+
+  const deviceModels = {};
+  for (const at of assetTypes) {
+    deviceModels[at] = modelRows.filter(m => m.parent_value === at).map(m => m.value);
+  }
+  if (!deviceModels['Repair Service Only']) deviceModels['Repair Service Only'] = [];
+
+  res.json({ assetTypes, partTypes, deviceModels });
 });
 
 // GET /api/inventory/fifo-cost?item_id=X&quantity=Y
@@ -1314,6 +1387,78 @@ app.delete('/api/inventory/pr/:id', requireAuth, (req, res) => {
   if (!pr) return res.status(404).json({ error: 'Not found' });
   if (pr.status !== 'Pending') return res.status(400).json({ error: 'Only Pending PRs can be deleted' });
   db.prepare('DELETE FROM purchase_requisitions WHERE id=?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── SETTINGS / LOOKUP OPTIONS ─────────────────────────────────────────────────
+
+// GET /api/settings/options — all active options, optionally filtered by group
+// Pass ?all=1 to include inactive, ?group=color to filter
+app.get('/api/settings/options', requireAuth, (req, res) => {
+  const { group, all } = req.query;
+  const conditions = [];
+  const params = [];
+  if (!all) { conditions.push('is_active=1'); }
+  if (group) { conditions.push('group_name=?'); params.push(group); }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  res.json(db.prepare(`SELECT * FROM lookup_options ${where} ORDER BY group_name, sort_order, value`).all(...params));
+});
+
+// GET /api/settings/groups — summary counts per group
+app.get('/api/settings/groups', requireAuth, (req, res) => {
+  res.json(db.prepare(
+    `SELECT group_name, COUNT(*) as total, SUM(is_active) as active
+     FROM lookup_options GROUP BY group_name ORDER BY group_name`
+  ).all());
+});
+
+// POST /api/settings/options — add a new option (admin only)
+app.post('/api/settings/options', requireAuth, requireAdmin, (req, res) => {
+  const { group_name, value, label, parent_value } = req.body || {};
+  if (!group_name || !value?.trim()) return res.status(400).json({ error: 'group_name and value are required' });
+  const maxRow = db.prepare(
+    `SELECT MAX(sort_order) as m FROM lookup_options WHERE group_name=? AND COALESCE(parent_value,'')=COALESCE(?,'')`
+  ).get(group_name, parent_value || null);
+  const sort_order = (maxRow?.m ?? -1) + 1;
+  try {
+    const r = db.prepare(
+      `INSERT INTO lookup_options (group_name, value, label, parent_value, sort_order) VALUES (?,?,?,?,?)`
+    ).run(group_name, value.trim(), label?.trim() || null, parent_value || null, sort_order);
+    res.status(201).json(db.prepare('SELECT * FROM lookup_options WHERE id=?').get(r.lastInsertRowid));
+  } catch(e) {
+    res.status(400).json({ error: e.message.includes('UNIQUE') ? 'This option already exists in the group' : e.message });
+  }
+});
+
+// PUT /api/settings/options/:id — update value, label, sort_order, or is_active
+app.put('/api/settings/options/:id', requireAuth, requireAdmin, (req, res) => {
+  const opt = db.prepare('SELECT * FROM lookup_options WHERE id=?').get(req.params.id);
+  if (!opt) return res.status(404).json({ error: 'Not found' });
+  const { value, label, sort_order, is_active } = req.body || {};
+  try {
+    db.prepare(`UPDATE lookup_options SET
+      value      = COALESCE(?, value),
+      label      = ?,
+      sort_order = COALESCE(?, sort_order),
+      is_active  = COALESCE(?, is_active)
+    WHERE id=?`).run(
+      value?.trim() || null,
+      label !== undefined ? (label?.trim() || null) : opt.label,
+      sort_order ?? null,
+      is_active ?? null,
+      opt.id
+    );
+    res.json(db.prepare('SELECT * FROM lookup_options WHERE id=?').get(opt.id));
+  } catch(e) {
+    res.status(400).json({ error: e.message.includes('UNIQUE') ? 'That value already exists' : e.message });
+  }
+});
+
+// DELETE /api/settings/options/:id — hard delete
+app.delete('/api/settings/options/:id', requireAuth, requireAdmin, (req, res) => {
+  const opt = db.prepare('SELECT * FROM lookup_options WHERE id=?').get(req.params.id);
+  if (!opt) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM lookup_options WHERE id=?').run(opt.id);
   res.json({ ok: true });
 });
 
