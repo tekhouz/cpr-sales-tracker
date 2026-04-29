@@ -1650,6 +1650,31 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
             </select>
           </div>
           <div class="form-group">
+            <label>RAM</label>
+            <select id="it-ram">
+              <option value="">N/A</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Storage</label>
+            <select id="it-storage">
+              <option value="">N/A</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Cellular / WiFi</label>
+            <select id="it-connectivity">
+              <option value="">N/A</option>
+              <option value="WiFi Only">WiFi Only</option>
+              <option value="WiFi + Cellular">WiFi + Cellular</option>
+              <option value="Cellular">Cellular</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Serial Number / IMEI</label>
+            <input type="text" id="it-serial" placeholder="e.g. 354123456789012">
+          </div>
+          <div class="form-group">
             <label>Status</label>
             <select id="it-status">
               <option value="Active">Active</option>
@@ -3499,6 +3524,10 @@ async function openAddItemModal(id) {
     $('it-supplier').value     = item.supplier || '';
     $('it-category').value     = item.category || '';
     $('it-description').value  = item.description || '';
+    $('it-ram').value          = item.ram || '';
+    $('it-storage').value      = item.storage || '';
+    $('it-connectivity').value = item.connectivity || '';
+    $('it-serial').value       = item.serial_number || '';
   }
   $('item-modal').classList.remove('hidden');
   setTimeout(() => $('it-part-id').focus(), 50);
@@ -3522,6 +3551,10 @@ async function saveItem() {
     model_number: $('it-model-number').value.trim() || null,
     color:        $('it-color').value.trim() || null,
     grade:        $('it-grade').value || null,
+    ram:          $('it-ram').value || null,
+    storage:      $('it-storage').value || null,
+    connectivity: $('it-connectivity').value || null,
+    serial_number: $('it-serial').value.trim() || null,
     status:       $('it-status').value || 'Active',
     description:  $('it-description').value.trim() || null,
     supplier:     $('it-supplier').value.trim() || null,
@@ -4348,6 +4381,10 @@ function populateSettingsDropdowns() {
   // Screen types
   fill('f-screen-type', stypes, '<option value="">— None —</option>');
   fill('e-screen-type', stypes, '<option value="">— None —</option>');
+
+  // RAM & Storage (inventory item modal)
+  fill('it-ram',     g.ram     || [], '<option value="">N/A</option>');
+  fill('it-storage', g.storage || [], '<option value="">N/A</option>');
 
   // Lead sources
   fill('l-source',          lsrcs, '<option value="">Select source</option>');

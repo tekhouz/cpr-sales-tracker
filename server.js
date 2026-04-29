@@ -183,6 +183,10 @@ db.pragma('synchronous=NORMAL');  // faster writes, safe with WAL
 try { db.exec('ALTER TABLE transactions ADD COLUMN repair_type TEXT'); } catch(e) {}
 try { db.exec('ALTER TABLE transactions ADD COLUMN cost_price REAL DEFAULT 0'); } catch(e) {}
 try { db.exec('ALTER TABLE transactions ADD COLUMN profit REAL DEFAULT 0'); } catch(e) {}
+try { db.exec('ALTER TABLE inventory_items ADD COLUMN ram TEXT'); } catch(e) {}
+try { db.exec('ALTER TABLE inventory_items ADD COLUMN storage TEXT'); } catch(e) {}
+try { db.exec('ALTER TABLE inventory_items ADD COLUMN connectivity TEXT'); } catch(e) {}
+try { db.exec('ALTER TABLE inventory_items ADD COLUMN serial_number TEXT'); } catch(e) {}
 
 // FIFO batch table — one row per stock-in event, tracks quantity remaining
 db.exec(`
@@ -1083,15 +1087,19 @@ app.post('/api/inventory/items', requireAuth, (req, res) => {
     const d = req.body;
     const r = db.prepare(`
       INSERT INTO inventory_items
-        (part_id, asset_type, part_type, category, model, model_number, color, grade, status, description, supplier, cost_price, sell_price)
+        (part_id, asset_type, part_type, category, model, model_number, color, grade, status,
+         description, supplier, cost_price, sell_price, ram, storage, connectivity, serial_number)
       VALUES
-        (@part_id, @asset_type, @part_type, @category, @model, @model_number, @color, @grade, @status, @description, @supplier, @cost_price, @sell_price)
+        (@part_id, @asset_type, @part_type, @category, @model, @model_number, @color, @grade, @status,
+         @description, @supplier, @cost_price, @sell_price, @ram, @storage, @connectivity, @serial_number)
     `).run({
       part_id: d.part_id, asset_type: d.asset_type||null, part_type: d.part_type||null,
       category: d.category||null, model: d.model||null, model_number: d.model_number||null,
       color: d.color||null, grade: d.grade||null, status: d.status||'Active',
       description: d.description||null, supplier: d.supplier||null,
-      cost_price: parseFloat(d.cost_price)||0, sell_price: parseFloat(d.sell_price)||0
+      cost_price: parseFloat(d.cost_price)||0, sell_price: parseFloat(d.sell_price)||0,
+      ram: d.ram||null, storage: d.storage||null, connectivity: d.connectivity||null,
+      serial_number: d.serial_number||null
     });
     // Auto-create stock row
     db.prepare(`INSERT INTO inventory_stock (item_id, quantity, min_quantity, location) VALUES (?, 0, ?, ?)`)
@@ -1114,7 +1122,8 @@ app.put('/api/inventory/items/:id', requireAuth, (req, res) => {
     UPDATE inventory_items SET
       part_id=@part_id, asset_type=@asset_type, part_type=@part_type, category=@category,
       model=@model, model_number=@model_number, color=@color, grade=@grade, status=@status,
-      description=@description, supplier=@supplier, cost_price=@cost_price, sell_price=@sell_price
+      description=@description, supplier=@supplier, cost_price=@cost_price, sell_price=@sell_price,
+      ram=@ram, storage=@storage, connectivity=@connectivity, serial_number=@serial_number
     WHERE id=@id
   `).run({
     part_id: d.part_id, asset_type: d.asset_type||null, part_type: d.part_type||null,
@@ -1122,7 +1131,8 @@ app.put('/api/inventory/items/:id', requireAuth, (req, res) => {
     color: d.color||null, grade: d.grade||null, status: d.status||'Active',
     description: d.description||null, supplier: d.supplier||null,
     cost_price: parseFloat(d.cost_price)||0, sell_price: parseFloat(d.sell_price)||0,
-    id: req.params.id
+    ram: d.ram||null, storage: d.storage||null, connectivity: d.connectivity||null,
+    serial_number: d.serial_number||null, id: req.params.id
   });
   // Update stock meta
   db.prepare(`UPDATE inventory_stock SET min_quantity=?, location=?, last_updated=CURRENT_TIMESTAMP WHERE item_id=?`)
